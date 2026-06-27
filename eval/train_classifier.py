@@ -81,6 +81,31 @@ def export_onnx(model, scaler, out_path: str) -> None:
         fh.write(onnx_model.SerializeToString())
 
 
+def train_and_export(data, category, model_out, splits_out, seed=0):
+    """Train the modest classifier for one category and export model + frozen splits.
+
+    Returns the train accuracy (modest by design)."""
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler
+
+    train, calib, ev = _split_paths(data, category, seed)
+    Xtr, ytr = _xy(train)
+
+    scaler = StandardScaler().fit(Xtr)
+    # Deliberately modest: light regularization, no heroics — we want calibratable
+    # uncertainty near the boundary, not a saturated classifier.
+    clf = LogisticRegression(C=0.5, max_iter=1000, class_weight="balanced")
+    clf.fit(scaler.transform(Xtr), ytr)
+
+    export_onnx(clf, scaler, model_out)
+    Path(splits_out).parent.mkdir(parents=True, exist_ok=True)
+    Path(splits_out).write_text(json.dumps({
+        "train": train, "calibration": calib, "eval": ev,
+        "category": category, "seed": seed,
+    }, indent=2))
+    return clf.score(scaler.transform(Xtr), ytr)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", default="data")
@@ -90,27 +115,8 @@ def main() -> None:
     parser.add_argument("--splits-out", default="models/splits.json")
     args = parser.parse_args()
 
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.preprocessing import StandardScaler
-
-    train, calib, ev = _split_paths(args.data, args.category, args.seed)
-    Xtr, ytr = _xy(train)
-
-    scaler = StandardScaler().fit(Xtr)
-    # Deliberately modest: light regularization, no heroics — we want calibratable
-    # uncertainty near the boundary, not a saturated classifier.
-    clf = LogisticRegression(C=0.5, max_iter=1000, class_weight="balanced")
-    clf.fit(scaler.transform(Xtr), ytr)
-
-    export_onnx(clf, scaler, args.model_out)
-    Path(args.splits_out).write_text(json.dumps({
-        "train": train, "calibration": calib, "eval": ev,
-        "category": args.category, "seed": args.seed,
-    }, indent=2))
-
-    tr_acc = clf.score(scaler.transform(Xtr), ytr)
-    print(f"train items: {len(train)}  calib: {len(calib)}  eval: {len(ev)}")
-    print(f"train accuracy: {tr_acc:.3f}  (modest by design)")
+    acc = train_and_export(args.data, args.category, args.model_out, args.splits_out, args.seed)
+    print(f"train accuracy: {acc:.3f}  (modest by design)")
     print(f"wrote {args.model_out} and {args.splits_out}")
 
 

@@ -48,6 +48,7 @@ class ConditionResult:
     pii_bytes_out: int
     n_escalations: int
     n_items: int
+    n_deferred: int = 0
 
 
 class _Cursor:
@@ -179,9 +180,15 @@ def _summarize(condition, store, labels, costs) -> ConditionResult:
     y_pred = [1 if e.decision == "REJECT" else 0 for e in events]
     latencies = [e.latency_ms for e in events]
     total_bytes = sum(e.bytes_to_cloud for e in events)
-    n_esc = sum(1 for e in events if e.escalated or e.outbox_state in ("queued", "reconciled"))
     n = len(events)
     lat = latency_percentiles(latencies)
+
+    # Live escalations = the cloud was actually called now (bytes left the device this run).
+    # These are the only ones that incur current cloud cost / egress in this mode.
+    n_live = sum(1 for e in events if e.bytes_to_cloud > 0)
+    # Deferred = would-be escalations queued for sync on reconnect. Their cost is realized
+    # later (in the reconnect/sync row), NOT here — booking it twice would double-count.
+    n_deferred = sum(1 for e in events if e.outbox_state in ("queued", "reconciled"))
 
     return ConditionResult(
         condition=condition,
@@ -189,8 +196,9 @@ def _summarize(condition, store, labels, costs) -> ConditionResult:
         p50_latency_ms=lat["p50"],
         p99_latency_ms=lat["p99"],
         bytes_to_cloud_per_item=bytes_to_cloud_per_item(total_bytes, n),
-        cloud_cost_per_1k=cloud_cost_per_1k(n_esc, n, costs.C_cloud),
+        cloud_cost_per_1k=cloud_cost_per_1k(n_live, n, costs.C_cloud),
         pii_bytes_out=pii_bytes_out(store.boundary_rows()),
-        n_escalations=n_esc,
+        n_escalations=n_live,
         n_items=n,
+        n_deferred=n_deferred,
     )

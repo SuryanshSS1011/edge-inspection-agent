@@ -60,9 +60,18 @@ def test_all_conditions_zero_pii(tmp_path):
 
 def test_degraded_defers_then_reconciles(tmp_path):
     res = run_condition("hybrid_degraded", _stream(), COSTS, str(tmp_path / "e.db"))
-    # Degraded queues escalations (counted) but still produces decisions for every item.
+    # Degraded makes a decision for every item, calls the cloud live for none of them
+    # (deferred instead), and queues the would-be escalations for the reconnect row.
     assert res.n_items > 0
-    assert res.n_escalations > 0
+    assert res.n_escalations == 0     # no live cloud cost/egress while degraded
+    assert res.n_deferred > 0         # but the queue is non-empty
+
+
+def test_offline_has_no_live_cloud_cost(tmp_path):
+    res = run_condition("hybrid_offline", _stream(), COSTS, str(tmp_path / "f.db"))
+    assert res.bytes_to_cloud_per_item == 0
+    assert res.cloud_cost_per_1k == 0   # offline egress is genuinely zero
+    assert res.n_deferred > 0           # would-be escalations are queued, not lost
 
 
 def test_table_renders_all_rows():

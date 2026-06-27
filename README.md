@@ -15,7 +15,7 @@ model confidence. See [`docs/router_derivation.md`](docs/router_derivation.md).
 | M3 | Cost-aware router + unit tests (core IP) | ✅ done, 14 tests green |
 | M1 | Cloud MCP tool on Alibaba Cloud | ✅ code done; deploy + live exit-check pending creds |
 | M2 | ONNX perception + temperature calibration | ✅ logic done + tested; live fit needs a model + dataset |
-| M4 | Actuation + local log + full-mode loop | stub |
+| M4 | Actuation + local log + full-mode loop | ✅ done; cloud-independent, 10 tests |
 | M5 | Privacy filter + boundary log | stub |
 | M6 | Network controller + outbox | stub |
 | M7 | Eval harness + results table | stub |

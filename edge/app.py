@@ -18,6 +18,7 @@ from edge.config import load_config
 from edge.frame_source import WebcamSource
 from edge.network import NetworkController
 from edge.orchestrator import Orchestrator
+from edge.outbox import Outbox
 from edge.perception import OnnxClassifier
 from edge.privacy import PrivacyFilter
 from edge.store import Store
@@ -27,21 +28,25 @@ def build_live(args, config) -> Orchestrator:
     try:
         temperature = load_temperature(config.paths.calibration)
     except (FileNotFoundError, ValueError):
-        temperature = 1.0  # uncalibrated until M2's fit has been run
+        temperature = 1.0  # uncalibrated until the calibration fit has been run
 
     actuator = UsbRelayActuator(args.relay_port) if args.relay_port else MockActuator()
     cloud = CloudClient(args.cloud_url) if args.cloud_url else None
     privacy = PrivacyFilter() if args.cloud_url else None
+    store = Store(config.paths.db)
 
+    probe_fn = (lambda: (cloud.healthz(), 0.0)) if cloud else None
     return Orchestrator(
         config=config,
         source=WebcamSource(args.camera),
         perception=OnnxClassifier(config.paths.model, temperature=temperature),
         actuator=actuator,
-        store=Store(config.paths.db),
-        network=NetworkController(config.default_mode),
+        store=store,
+        network=NetworkController(config.default_mode, probe_fn=probe_fn),
         cloud=cloud,
         privacy=privacy,
+        outbox=Outbox(store),
+        category=args.category,
     )
 
 

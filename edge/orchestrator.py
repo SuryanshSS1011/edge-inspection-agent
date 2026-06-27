@@ -74,13 +74,20 @@ class Orchestrator:
         bytes_to_cloud = 0
         pii_bytes = 0
         diagnosis: Optional[dict] = None
+        outbox_state = "none"
 
         if decision == Decision.ESCALATE:
             action, escalated, bytes_to_cloud, pii_bytes, diagnosis = self._escalate(
                 event_id, frame, p, started
             )
+        elif decision == Decision.DEFER_AND_ACT:
+            # Degraded link: queue the escalation, act on the local decision now so the
+            # line never stalls; the cloud diagnosis is reconciled on reconnect.
+            outbox_state = self._defer(event_id, frame, started)
+            action = local_action(p, costs)
         else:
-            # DEFER_AND_ACT (M6) and LOCAL_ACT both act locally in full-mode M4.
+            # LOCAL_ACT: offline or outside the band. Under the asymmetry this
+            # conservatively rejects when in doubt (graceful degradation).
             action = local_action(p, costs)
 
         fired = self.actuator.fire(action)
@@ -99,7 +106,7 @@ class Orchestrator:
             bytes_to_cloud=bytes_to_cloud,
             pii_bytes=pii_bytes,
             cloud_diagnosis=diagnosis,
-            outbox_state="none",
+            outbox_state=outbox_state,
         )
         self.store.insert_event(event)
         return event
@@ -112,19 +119,13 @@ class Orchestrator:
         making the 'zero PII egress' claim measurable.
         """
         costs = self.config.costs
-        if self.cloud is None or self.privacy is None:
-            # No safe egress path -> never transmit a raw frame; act locally.
+        if self.cloud is None:
+            return local_action(p, costs), False, 0, 0, None
+        payload = self._filtered_payload(event_id, frame, ts)
+        if payload is None:
+            # No safe egress path / filter refused -> never transmit; act locally.
             return local_action(p, costs), False, 0, 0, None
 
-        try:
-            payload = self.privacy.filter(
-                frame, self._roi_bbox(frame), context={"category": self.category}
-            )
-        except PrivacyViolation:
-            # Filter refused (e.g. ROI == full frame): do not leak, act locally.
-            return local_action(p, costs), False, 0, 0, None
-
-        self.store.log_boundary(event_id, ts, payload.crossings)
         pii_bytes = payload.pii_bytes
         bytes_to_cloud = payload.total_bytes
         try:
@@ -139,6 +140,48 @@ class Orchestrator:
 
         action = Action.REJECT if diagnosis.get("defect_present") else Action.PASS
         return action, True, bytes_to_cloud, pii_bytes, diagnosis
+
+    def _defer(self, event_id: str, frame, ts: float) -> str:
+        """Queue a deferred escalation for later reconnect. Returns the outbox_state
+        ('queued' if queued, 'none' if no safe egress path or no outbox is wired)."""
+        if self.outbox is None:
+            return "none"
+        payload = self._filtered_payload(event_id, frame, ts)
+        if payload is None:
+            return "none"
+        self.outbox.enqueue(event_id, ts, {
+            "roi_png_b64": _b64(payload.roi_png),
+            "embedding": payload.embedding,
+            "context": payload.context,
+        })
+        return "queued"
+
+    def reconcile(self) -> int:
+        """Drain the outbox on reconnect: send queued payloads to the cloud and write the
+        late diagnoses back onto their events. Returns the number reconciled."""
+        if self.outbox is None or self.cloud is None:
+            return 0
+        return self.outbox.drain(
+            lambda payload: self.cloud.diagnose(
+                roi_png_b64=payload.get("roi_png_b64", ""),
+                embedding=payload.get("embedding"),
+                context=payload.get("context", {}),
+            )
+        )
+
+    def _filtered_payload(self, event_id: str, frame, ts: float):
+        """Build the privacy-filtered payload and log its boundary crossings. Returns the
+        payload, or None if there's no safe egress path (no filter, or it refused)."""
+        if self.privacy is None:
+            return None
+        try:
+            payload = self.privacy.filter(
+                frame, self._roi_bbox(frame), context={"category": self.category}
+            )
+        except PrivacyViolation:
+            return None
+        self.store.log_boundary(event_id, ts, payload.crossings)
+        return payload
 
     def _roi_bbox(self, frame):
         """Default ROI: a centered crop inset from the edges, strictly smaller than the

@@ -75,18 +75,21 @@ def _frame():
     return np.zeros((8, 8, 3), dtype=np.uint8)
 
 
-def _orchestrator(tmp_path, p, mode=NetworkMode.FULL, cloud=None, privacy=None):
+def _orchestrator(tmp_path, p, mode=NetworkMode.FULL, cloud=None, privacy=None, with_outbox=False):
     from edge.orchestrator import Orchestrator
+    from edge.outbox import Outbox
 
+    store = Store(str(tmp_path / "edge.db"))
     return Orchestrator(
         config=make_config(tmp_path),
         source=MockSource([_frame()]),
         perception=FakePerception(p),
         actuator=MockActuator(),
-        store=Store(str(tmp_path / "edge.db")),
+        store=store,
         network=NetworkController(mode),
         cloud=cloud,
         privacy=privacy,
+        outbox=Outbox(store) if with_outbox else None,
     )
 
 
@@ -148,6 +151,48 @@ def test_escalation_writes_boundary_log_with_zero_pii(tmp_path):
     rows = orch.store.boundary_rows()
     assert rows, "escalation must record at least one boundary crossing"
     assert pii_bytes_out(rows) == 0  # the measured zero-PII-egress claim
+
+
+def test_degraded_queues_and_acts_without_stalling(tmp_path):
+    # Degraded + in-band: act locally now, queue the escalation, no live cloud call.
+    cloud = FakeCloud(defect_present=True)
+    orch = _orchestrator(
+        tmp_path, p=0.3, mode=NetworkMode.DEGRADED,
+        cloud=cloud, privacy=FakePrivacy(), with_outbox=True,
+    )
+    [event] = orch.run()
+    assert cloud.calls == 0                        # no live escalation while degraded
+    assert event.decision == Action.REJECT.value   # acted locally (p in band, p>=p*)
+    assert event.outbox_state == "queued"
+    assert orch.outbox.pending_count() == 1
+
+
+def test_reconnect_drains_outbox_and_backfills_diagnosis(tmp_path):
+    cloud = FakeCloud(defect_present=True)
+    orch = _orchestrator(
+        tmp_path, p=0.3, mode=NetworkMode.DEGRADED,
+        cloud=cloud, privacy=FakePrivacy(), with_outbox=True,
+    )
+    [event] = orch.run()
+    assert event.cloud_diagnosis is None           # nothing live yet
+
+    reconciled = orch.reconcile()                  # link is back
+    assert reconciled == 1
+    refreshed = orch.store.get_event(event.id)
+    assert refreshed.cloud_diagnosis is not None
+    assert refreshed.outbox_state == "reconciled"
+
+
+def test_offline_in_band_rejects_conservatively(tmp_path):
+    # Offline + in band: cannot escalate; conservative local action is REJECT.
+    orch = _orchestrator(
+        tmp_path, p=0.3, mode=NetworkMode.OFFLINE,
+        cloud=FakeCloud(), privacy=FakePrivacy(), with_outbox=True,
+    )
+    [event] = orch.run()
+    assert event.escalated is False
+    assert event.decision == Action.REJECT.value
+    assert event.outbox_state == "none"            # offline path doesn't queue here
 
 
 def test_event_persisted_and_readable(tmp_path):

@@ -5,8 +5,9 @@ This module owns the schema; outbox.py operates on the `outbox`/`events` tables
 through this store. Implementations land in M4 (events), M5 (boundary_log), M6 (outbox).
 """
 
+import json
 import sqlite3
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 SCHEMA = """
@@ -63,20 +64,71 @@ class InspectionEvent:
     outbox_state: str = "none"
 
 
+_EVENT_COLUMNS = (
+    "id", "ts", "frame_hash", "p", "uncertainty", "decision", "escalated",
+    "network_mode", "action_fired", "latency_ms", "bytes_to_cloud", "pii_bytes",
+    "cloud_diagnosis", "outbox_state",
+)
+
+
+def _row_to_event(row: sqlite3.Row) -> InspectionEvent:
+    diagnosis = json.loads(row["cloud_diagnosis"]) if row["cloud_diagnosis"] else None
+    return InspectionEvent(
+        id=row["id"],
+        ts=row["ts"],
+        frame_hash=row["frame_hash"],
+        p=row["p"],
+        uncertainty=row["uncertainty"],
+        decision=row["decision"],
+        escalated=bool(row["escalated"]),
+        network_mode=row["network_mode"],
+        action_fired=row["action_fired"],
+        latency_ms=row["latency_ms"],
+        bytes_to_cloud=row["bytes_to_cloud"],
+        pii_bytes=row["pii_bytes"],
+        cloud_diagnosis=diagnosis,
+        outbox_state=row["outbox_state"],
+    )
+
+
 class Store:
-    """Thin SQLite wrapper. Full CRUD lands in M4."""
+    """SQLite-backed log, state, and outbox. The events table is also the eval dataset."""
 
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._conn = sqlite3.connect(db_path)
+        self._conn.row_factory = sqlite3.Row
         self._conn.executescript(SCHEMA)
         self._conn.commit()
 
-    def insert_event(self, event: InspectionEvent) -> None:  # M4
-        raise NotImplementedError
+    def insert_event(self, event: InspectionEvent) -> None:
+        diagnosis = json.dumps(event.cloud_diagnosis) if event.cloud_diagnosis is not None else None
+        self._conn.execute(
+            f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) "
+            f"VALUES ({', '.join('?' for _ in _EVENT_COLUMNS)})",
+            (
+                event.id, event.ts, event.frame_hash, event.p, event.uncertainty,
+                event.decision, int(event.escalated), event.network_mode,
+                event.action_fired, event.latency_ms, event.bytes_to_cloud,
+                event.pii_bytes, diagnosis, event.outbox_state,
+            ),
+        )
+        self._conn.commit()
 
     def update_diagnosis(self, event_id: str, diagnosis: dict) -> None:  # M6 reconcile
-        raise NotImplementedError
+        self._conn.execute(
+            "UPDATE events SET cloud_diagnosis = ?, outbox_state = 'reconciled' WHERE id = ?",
+            (json.dumps(diagnosis), event_id),
+        )
+        self._conn.commit()
+
+    def get_event(self, event_id: str) -> Optional[InspectionEvent]:
+        row = self._conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+        return _row_to_event(row) if row else None
+
+    def all_events(self) -> list:
+        rows = self._conn.execute("SELECT * FROM events ORDER BY ts").fetchall()
+        return [_row_to_event(r) for r in rows]
 
     def close(self) -> None:
         self._conn.close()

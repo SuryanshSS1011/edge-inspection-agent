@@ -36,12 +36,13 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 
 CREATE TABLE IF NOT EXISTS boundary_log (
-    id          TEXT PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id    TEXT NOT NULL,
     ts          REAL NOT NULL,
     field       TEXT NOT NULL,            -- what crossed the device boundary
     nbytes      INTEGER NOT NULL,
-    is_pii      INTEGER NOT NULL DEFAULT 0
+    is_pii      INTEGER NOT NULL DEFAULT 0,
+    blocked     INTEGER NOT NULL DEFAULT 0  -- 1 if the filter refused to let it cross
 );
 """
 
@@ -121,6 +122,26 @@ class Store:
             (json.dumps(diagnosis), event_id),
         )
         self._conn.commit()
+
+    def log_boundary(self, event_id: str, ts: float, crossings) -> None:
+        """Persist every CrossingRecord for an escalation to the boundary log. This log
+        is the audit trail behind the measured 'zero PII egress' claim."""
+        self._conn.executemany(
+            "INSERT INTO boundary_log (event_id, ts, field, nbytes, is_pii, blocked) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (event_id, ts, c.field, c.nbytes, int(c.is_pii), int(getattr(c, "blocked", False)))
+                for c in crossings
+            ],
+        )
+        self._conn.commit()
+
+    def boundary_rows(self) -> list:
+        """Return boundary-log rows as dicts (for eval.metrics.pii_bytes_out)."""
+        rows = self._conn.execute(
+            "SELECT event_id, ts, field, nbytes, is_pii, blocked FROM boundary_log ORDER BY id"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def get_event(self, event_id: str) -> Optional[InspectionEvent]:
         row = self._conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()

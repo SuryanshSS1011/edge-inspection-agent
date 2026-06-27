@@ -8,10 +8,11 @@ lives in router.py.
 
 import hashlib
 import time
+import uuid
 from typing import Optional
 
 from edge.actuator import Actuator
-from edge.cloud_client import CloudClient
+from edge.cloud_client import CloudClient, CloudUnreachable
 from edge.config import Config
 from edge.frame_source import FrameSource
 from edge.network import NetworkController
@@ -45,19 +46,99 @@ class Orchestrator:
         self.privacy = privacy
         self.outbox = outbox
 
-    def run(self) -> None:  # M4 (then extended in M5/M6)
-        """Process every frame from the source to completion.
+    def run(self) -> list:
+        """Process every frame from the source to completion. Returns the events logged."""
+        events = []
+        for frame in self.source.frames():
+            events.append(self.process_frame(frame))
+        return events
 
-        For each frame:
-          1. perceive -> calibrated p, uncertainty
-          2. decide(p, network.mode, costs) -> ESCALATE | DEFER_AND_ACT | LOCAL_ACT
-          3. on ESCALATE: privacy.filter -> cloud.diagnose -> final action
-             on DEFER_AND_ACT: outbox.enqueue + local_action now
-             on LOCAL_ACT: local_action
-          4. actuator.fire(action); persist a complete InspectionEvent
+    def process_frame(self, frame) -> InspectionEvent:
+        """Run one item through perceive -> route -> act -> log and return its event.
+
+        Actuation never depends on the cloud: if an escalation can't reach the cloud,
+        we fall back to the cost-minimizing local action so the line never stalls (§3.6).
         """
-        raise NotImplementedError
+        started = time.time()
+        costs = self.config.costs
+        mode = self.network.mode
+
+        perception = self.perception.predict(frame)
+        p = perception.p
+
+        decision = decide(p, mode, costs)
+        escalated = False
+        bytes_to_cloud = 0
+        pii_bytes = 0
+        diagnosis: Optional[dict] = None
+
+        if decision == Decision.ESCALATE:
+            action, escalated, bytes_to_cloud, pii_bytes, diagnosis = self._escalate(frame, p)
+        else:
+            # DEFER_AND_ACT (M6) and LOCAL_ACT both act locally in full-mode M4.
+            action = local_action(p, costs)
+
+        fired = self.actuator.fire(action)
+
+        event = InspectionEvent(
+            id=str(uuid.uuid4()),
+            ts=started,
+            frame_hash=self._frame_hash(frame),
+            p=p,
+            uncertainty=perception.uncertainty,
+            decision=action.value,
+            escalated=escalated,
+            network_mode=mode.value,
+            action_fired=fired,
+            latency_ms=(time.time() - started) * 1000.0,
+            bytes_to_cloud=bytes_to_cloud,
+            pii_bytes=pii_bytes,
+            cloud_diagnosis=diagnosis,
+            outbox_state="none",
+        )
+        self.store.insert_event(event)
+        return event
+
+    def _escalate(self, frame, p: float):
+        """Send a privacy-filtered payload to the cloud; fall back locally if unreachable.
+
+        Returns (action, escalated, bytes_to_cloud, pii_bytes, diagnosis).
+        The privacy filter (M5) is wired here when present; until then we cannot send a
+        raw frame, so without a privacy filter we conservatively act locally.
+        """
+        costs = self.config.costs
+        if self.cloud is None or self.privacy is None:
+            # No safe egress path yet -> never transmit a raw frame; act locally.
+            return local_action(p, costs), False, 0, 0, None
+
+        payload = self.privacy.filter(frame, self._roi_bbox(frame))
+        pii_bytes = sum(c.nbytes for c in payload.crossings if c.is_pii)
+        bytes_to_cloud = sum(c.nbytes for c in payload.crossings)
+        try:
+            diagnosis = self.cloud.diagnose(
+                roi_png_b64=_b64(payload.roi_png),
+                embedding=payload.embedding,
+                context={},
+            )
+        except CloudUnreachable:
+            # Cloud gone mid-call: fall back to the local action, log no diagnosis.
+            return local_action(p, costs), True, bytes_to_cloud, pii_bytes, None
+
+        action = Action.REJECT if diagnosis.get("defect_present") else Action.PASS
+        return action, True, bytes_to_cloud, pii_bytes, diagnosis
+
+    @staticmethod
+    def _roi_bbox(frame):
+        """Default ROI = the full frame bounds; a detector can narrow this later."""
+        h, w = frame.shape[:2]
+        return (0, 0, w, h)
 
     @staticmethod
     def _frame_hash(frame) -> str:
         return hashlib.sha256(frame.tobytes()).hexdigest()
+
+
+def _b64(data) -> str:
+    import base64
+
+    return base64.b64encode(data).decode("ascii") if data else ""

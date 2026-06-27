@@ -1,0 +1,46 @@
+# Serverless Devs (s.yaml) — deploy diagnose_defect to Alibaba Cloud Function Compute.
+#
+# Prereqs:
+#   npm i -g @serverless-devs/s
+#   s config add            # configure Alibaba Cloud AccessKey
+# Deploy:
+#   s deploy
+# The DASHSCOPE_API_KEY must be set as a function env var (do NOT commit it).
+
+edition: 3.0.0
+name: edge-inspection-cloud
+access: default
+
+vars:
+  region: ap-southeast-1   # match the region your Qwen Cloud voucher is provisioned in
+
+resources:
+  diagnose:
+    component: fc3
+    props:
+      region: ${vars.region}
+      functionName: diagnose-defect
+      description: Qwen-VL industrial defect reasoning, returns structured JSON
+      runtime: custom.debian10
+      cpu: 0.5
+      memorySize: 1024
+      timeout: 60
+      # Ship the whole repo so `cloud.*` and the bootstrap resolve.
+      codeUri: ../../
+      customRuntimeConfig:
+        command:
+          - bash
+          - cloud/fc_deploy/bootstrap
+        port: 9000
+      environmentVariables:
+        DASHSCOPE_API_KEY: ${env('DASHSCOPE_API_KEY')}
+        QWEN_MODEL: qwen-vl-plus
+        QWEN_BASE_URL: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+      triggers:
+        - triggerName: http
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST

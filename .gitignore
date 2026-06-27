@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+edge.db
+models/*.onnx
+models/temperature.json
+.env
+*.egg-info/

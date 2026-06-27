@@ -1,0 +1,13 @@
+costs:
+  C_FN: 100.0      # false negative (defect shipped) — large
+  C_FP: 5.0        # false positive (good part rejected) — small
+  C_cloud: 2.0     # dollars + latency/bandwidth penalty for one escalation
+  residual_cloud_error: 0.3  # eps in the escalation inequality
+
+network:
+  default_mode: full   # full | degraded | offline
+
+paths:
+  db: ./edge.db
+  model: ./models/classifier.onnx
+  calibration: ./models/temperature.json

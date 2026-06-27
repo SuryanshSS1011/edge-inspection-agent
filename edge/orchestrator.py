@@ -19,7 +19,14 @@ from edge.network import NetworkController
 from edge.outbox import Outbox
 from edge.perception import OnnxClassifier
 from edge.privacy import PrivacyFilter, PrivacyViolation
-from edge.router import Action, Decision, decide, local_action
+from edge.router import (
+    Action,
+    Decision,
+    NetworkMode,
+    decide,
+    escalation_band,
+    local_action,
+)
 from edge.store import InspectionEvent, Store
 
 
@@ -86,9 +93,13 @@ class Orchestrator:
             outbox_state = self._defer(event_id, frame, started)
             action = local_action(p, costs)
         else:
-            # LOCAL_ACT: offline or outside the band. Under the asymmetry this
-            # conservatively rejects when in doubt (graceful degradation).
+            # LOCAL_ACT: offline or outside the band. Act locally now — under the
+            # asymmetry this conservatively rejects when in doubt (graceful degradation).
             action = local_action(p, costs)
+            # Offline but in-band: this was a would-be escalation. Queue it so the cloud
+            # can confirm the diagnosis once the link returns (build plan §3.5).
+            if mode == NetworkMode.OFFLINE and self._in_band(p):
+                outbox_state = self._defer(event_id, frame, started)
 
         fired = self.actuator.fire(action)
 
@@ -182,6 +193,10 @@ class Orchestrator:
             return None
         self.store.log_boundary(event_id, ts, payload.crossings)
         return payload
+
+    def _in_band(self, p: float) -> bool:
+        band = escalation_band(self.config.costs)
+        return band is not None and band[0] <= p <= band[1]
 
     def _roi_bbox(self, frame):
         """Default ROI: a centered crop inset from the edges, strictly smaller than the

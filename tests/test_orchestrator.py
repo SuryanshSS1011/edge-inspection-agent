@@ -183,8 +183,9 @@ def test_reconnect_drains_outbox_and_backfills_diagnosis(tmp_path):
     assert refreshed.outbox_state == "reconciled"
 
 
-def test_offline_in_band_rejects_conservatively(tmp_path):
-    # Offline + in band: cannot escalate; conservative local action is REJECT.
+def test_offline_in_band_rejects_conservatively_and_queues(tmp_path):
+    # Offline + in band: cannot escalate live, so act locally (conservative REJECT) AND
+    # queue the would-be escalation for sync on reconnect (build plan §3.5).
     orch = _orchestrator(
         tmp_path, p=0.3, mode=NetworkMode.OFFLINE,
         cloud=FakeCloud(), privacy=FakePrivacy(), with_outbox=True,
@@ -192,7 +193,19 @@ def test_offline_in_band_rejects_conservatively(tmp_path):
     [event] = orch.run()
     assert event.escalated is False
     assert event.decision == Action.REJECT.value
-    assert event.outbox_state == "none"            # offline path doesn't queue here
+    assert event.outbox_state == "queued"
+    assert orch.outbox.pending_count() == 1
+
+
+def test_offline_out_of_band_does_not_queue(tmp_path):
+    # Offline but confident (out of band): no would-be escalation, nothing to queue.
+    orch = _orchestrator(
+        tmp_path, p=0.9, mode=NetworkMode.OFFLINE,
+        cloud=FakeCloud(), privacy=FakePrivacy(), with_outbox=True,
+    )
+    [event] = orch.run()
+    assert event.outbox_state == "none"
+    assert orch.outbox.pending_count() == 0
 
 
 def test_event_persisted_and_readable(tmp_path):

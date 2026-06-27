@@ -18,7 +18,7 @@ model confidence. See [`docs/router_derivation.md`](docs/router_derivation.md).
 | M4 | Actuation + local log + full-mode loop | ✅ done; cloud-independent, 10 tests |
 | M5 | Privacy filter + boundary log | ✅ done; measured zero PII egress, 9 tests |
 | M6 | Network controller + outbox | ✅ done; defer + reconnect-sync, 16 tests |
-| M7 | Eval harness + results table | stub |
+| M7 | Eval harness + results table | ✅ done; table generates, 18 tests |
 | M8 | Demo capture + deck | stub |
 
 Build order and exit checks: `../EdgeAgent_Implementation_Plan.md` §5.

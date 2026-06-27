@@ -6,3 +6,6 @@ models/*.onnx
 models/temperature.json
 .env
 *.egg-info/
+data/
+eval/results.json
+eval/fixtures/

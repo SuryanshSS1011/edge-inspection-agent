@@ -40,16 +40,23 @@ def preprocess(frame: np.ndarray, size: Tuple[int, int] = _INPUT_SIZE) -> np.nda
 
 
 def logit_from_output(output: np.ndarray) -> float:
-    """Reduce a model output to a single defect logit.
+    """Reduce a model output to a single defect logit (temperature scaling is applied to it).
 
     Supports:
       - shape (1, 1) or (1,): a raw defect logit, used directly.
-      - shape (1, 2): two-class logits [good, defect] -> logit(defect) - logit(good).
+      - shape (1, 2): two values. If they look like a probability pair [P(good), P(defect)]
+        (non-negative and summing to ~1), recover the logit as log(P_def / P_good);
+        otherwise treat them as raw class logits [good, defect] -> defect - good.
     """
     arr = np.asarray(output, dtype=float).reshape(-1)
     if arr.size == 1:
         return float(arr[0])
     if arr.size == 2:
+        is_prob_pair = (arr >= 0).all() and abs(arr.sum() - 1.0) < 1e-3
+        if is_prob_pair:
+            eps = 1e-7
+            p_def = min(max(arr[1], eps), 1 - eps)
+            return float(np.log(p_def / (1.0 - p_def)))
         return float(arr[1] - arr[0])
     raise ValueError(f"unexpected model output shape with {arr.size} values")
 
@@ -57,6 +64,21 @@ def logit_from_output(output: np.ndarray) -> float:
 def uncertainty_of(p: float) -> float:
     """1.0 at p=0.5 (max ambiguity), 0.0 at p in {0, 1}."""
     return 1.0 - abs(2.0 * p - 1.0)
+
+
+def _pick_score_output(outputs):
+    """Choose the scores output among possibly several ONNX outputs (one row assumed).
+
+    sklearn-onnx emits [label, probabilities]; a CNN may emit a single logit tensor.
+    Prefer a 2-value probabilities/logits output, then a single-value logit, else the
+    first output."""
+    for out in outputs:
+        if np.asarray(out).size == 2:
+            return out
+    for out in outputs:
+        if np.asarray(out).size == 1:
+            return out
+    return outputs[0]
 
 
 class OnnxClassifier:
@@ -75,11 +97,15 @@ class OnnxClassifier:
         return self._session
 
     def predict(self, frame: np.ndarray) -> Perception:
+        return self.predict_from_features(preprocess(frame))
+
+    def predict_from_features(self, tensor: np.ndarray) -> Perception:
+        """Run the ONNX model on a ready input tensor and calibrate. Used directly when the
+        model takes a feature vector rather than a raw image (e.g. the LR baseline)."""
         session = self._ensure_session()
-        tensor = preprocess(frame)
         input_name = session.get_inputs()[0].name
-        output = session.run(None, {input_name: tensor})[0]
-        return self.predict_from_logit(logit_from_output(output))
+        outputs = session.run(None, {input_name: tensor})
+        return self.predict_from_logit(logit_from_output(_pick_score_output(outputs)))
 
     def predict_from_logit(self, logit: float) -> Perception:
         """Calibrate a raw defect logit -> Perception. Separated so it's unit-testable

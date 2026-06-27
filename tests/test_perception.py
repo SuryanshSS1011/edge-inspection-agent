@@ -27,6 +27,26 @@ def test_logit_rejects_unexpected_shape():
         logit_from_output(np.array([[1.0, 2.0, 3.0]]))
 
 
+def test_logit_from_probability_pair():
+    # [P(good), P(defect)] summing to 1 -> log(p_def / p_good).
+    import math
+    out = logit_from_output(np.array([[0.2, 0.8]]))
+    assert out == pytest.approx(math.log(0.8 / 0.2))
+
+
+def test_logit_distinguishes_probs_from_logits():
+    # Raw logits don't sum to ~1 -> treated as class logits (difference).
+    assert logit_from_output(np.array([[1.0, 3.0]])) == pytest.approx(2.0)
+
+
+def test_pick_score_output_prefers_probabilities():
+    from edge.perception import _pick_score_output
+    # sklearn-onnx style: [label(int), probabilities(2)] -> pick the 2-value output.
+    outputs = [np.array([0]), np.array([[0.3, 0.7]])]
+    picked = _pick_score_output(outputs)
+    assert np.asarray(picked).size == 2
+
+
 def test_uncertainty_peaks_at_half():
     assert uncertainty_of(0.5) == pytest.approx(1.0)
     assert uncertainty_of(0.0) == pytest.approx(0.0)

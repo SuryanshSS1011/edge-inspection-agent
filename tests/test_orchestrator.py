@@ -62,11 +62,12 @@ class FakeCloud:
 class FakePrivacy:
     """Returns a tiny ROI payload and logs the crossing, no real cropping."""
 
-    def filter(self, frame, bbox):
+    def filter(self, frame, bbox, context=None):
         return FilteredPayload(
             roi_png=b"PNGDATA",
             embedding=None,
             crossings=[CrossingRecord(field="roi_png", nbytes=7, is_pii=False)],
+            context=context or {},
         )
 
 
@@ -136,6 +137,17 @@ def test_actuation_survives_cloud_outage(tmp_path):
     assert event.cloud_diagnosis is None      # but got nothing back
     assert event.decision in (Action.PASS.value, Action.REJECT.value)
     assert event.action_fired.startswith("mock:")
+
+
+def test_escalation_writes_boundary_log_with_zero_pii(tmp_path):
+    from eval.metrics import pii_bytes_out
+
+    cloud = FakeCloud(defect_present=True)
+    orch = _orchestrator(tmp_path, p=0.3, cloud=cloud, privacy=FakePrivacy())
+    orch.run()
+    rows = orch.store.boundary_rows()
+    assert rows, "escalation must record at least one boundary crossing"
+    assert pii_bytes_out(rows) == 0  # the measured zero-PII-egress claim
 
 
 def test_event_persisted_and_readable(tmp_path):

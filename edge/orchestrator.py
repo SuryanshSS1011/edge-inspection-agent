@@ -18,7 +18,7 @@ from edge.frame_source import FrameSource
 from edge.network import NetworkController
 from edge.outbox import Outbox
 from edge.perception import OnnxClassifier
-from edge.privacy import PrivacyFilter
+from edge.privacy import PrivacyFilter, PrivacyViolation
 from edge.router import Action, Decision, decide, local_action
 from edge.store import InspectionEvent, Store
 
@@ -35,6 +35,7 @@ class Orchestrator:
         cloud: Optional[CloudClient] = None,
         privacy: Optional[PrivacyFilter] = None,
         outbox: Optional[Outbox] = None,
+        category: str = "",
     ):
         self.config = config
         self.source = source
@@ -45,6 +46,7 @@ class Orchestrator:
         self.cloud = cloud
         self.privacy = privacy
         self.outbox = outbox
+        self.category = category  # non-PII context label sent with escalations
 
     def run(self) -> list:
         """Process every frame from the source to completion. Returns the events logged."""
@@ -62,6 +64,7 @@ class Orchestrator:
         started = time.time()
         costs = self.config.costs
         mode = self.network.mode
+        event_id = str(uuid.uuid4())
 
         perception = self.perception.predict(frame)
         p = perception.p
@@ -73,7 +76,9 @@ class Orchestrator:
         diagnosis: Optional[dict] = None
 
         if decision == Decision.ESCALATE:
-            action, escalated, bytes_to_cloud, pii_bytes, diagnosis = self._escalate(frame, p)
+            action, escalated, bytes_to_cloud, pii_bytes, diagnosis = self._escalate(
+                event_id, frame, p, started
+            )
         else:
             # DEFER_AND_ACT (M6) and LOCAL_ACT both act locally in full-mode M4.
             action = local_action(p, costs)
@@ -81,7 +86,7 @@ class Orchestrator:
         fired = self.actuator.fire(action)
 
         event = InspectionEvent(
-            id=str(uuid.uuid4()),
+            id=event_id,
             ts=started,
             frame_hash=self._frame_hash(frame),
             p=p,
@@ -99,26 +104,34 @@ class Orchestrator:
         self.store.insert_event(event)
         return event
 
-    def _escalate(self, frame, p: float):
+    def _escalate(self, event_id: str, frame, p: float, ts: float):
         """Send a privacy-filtered payload to the cloud; fall back locally if unreachable.
 
-        Returns (action, escalated, bytes_to_cloud, pii_bytes, diagnosis).
-        The privacy filter (M5) is wired here when present; until then we cannot send a
-        raw frame, so without a privacy filter we conservatively act locally.
+        Returns (action, escalated, bytes_to_cloud, pii_bytes, diagnosis). Every byte/field
+        that crosses the device boundary is recorded to the boundary log against event_id,
+        making the 'zero PII egress' claim measurable.
         """
         costs = self.config.costs
         if self.cloud is None or self.privacy is None:
-            # No safe egress path yet -> never transmit a raw frame; act locally.
+            # No safe egress path -> never transmit a raw frame; act locally.
             return local_action(p, costs), False, 0, 0, None
 
-        payload = self.privacy.filter(frame, self._roi_bbox(frame))
-        pii_bytes = sum(c.nbytes for c in payload.crossings if c.is_pii)
-        bytes_to_cloud = sum(c.nbytes for c in payload.crossings)
+        try:
+            payload = self.privacy.filter(
+                frame, self._roi_bbox(frame), context={"category": self.category}
+            )
+        except PrivacyViolation:
+            # Filter refused (e.g. ROI == full frame): do not leak, act locally.
+            return local_action(p, costs), False, 0, 0, None
+
+        self.store.log_boundary(event_id, ts, payload.crossings)
+        pii_bytes = payload.pii_bytes
+        bytes_to_cloud = payload.total_bytes
         try:
             diagnosis = self.cloud.diagnose(
                 roi_png_b64=_b64(payload.roi_png),
                 embedding=payload.embedding,
-                context={},
+                context=payload.context,
             )
         except CloudUnreachable:
             # Cloud gone mid-call: fall back to the local action, log no diagnosis.
@@ -127,11 +140,13 @@ class Orchestrator:
         action = Action.REJECT if diagnosis.get("defect_present") else Action.PASS
         return action, True, bytes_to_cloud, pii_bytes, diagnosis
 
-    @staticmethod
-    def _roi_bbox(frame):
-        """Default ROI = the full frame bounds; a detector can narrow this later."""
+    def _roi_bbox(self, frame):
+        """Default ROI: a centered crop inset from the edges, strictly smaller than the
+        frame so the privacy filter never sees a full-frame request. A detector can
+        replace this with a tight part localization later."""
         h, w = frame.shape[:2]
-        return (0, 0, w, h)
+        inset_w, inset_h = max(1, w // 8), max(1, h // 8)
+        return (inset_w, inset_h, w - 2 * inset_w, h - 2 * inset_h)
 
     @staticmethod
     def _frame_hash(frame) -> str:

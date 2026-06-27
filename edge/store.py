@@ -143,6 +143,30 @@ class Store:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    # --- outbox (deferred escalations) --------------------------------------
+
+    def enqueue_outbox(self, event_id: str, enqueued_ts: float, payload: dict) -> None:
+        """Persist a deferred escalation and mark its event queued."""
+        self._conn.execute(
+            "INSERT OR REPLACE INTO outbox (id, enqueued_ts, payload, drained) VALUES (?, ?, ?, 0)",
+            (event_id, enqueued_ts, json.dumps(payload)),
+        )
+        self._conn.execute(
+            "UPDATE events SET outbox_state = 'queued' WHERE id = ?", (event_id,)
+        )
+        self._conn.commit()
+
+    def pending_outbox(self) -> list:
+        """Return undrained outbox entries oldest-first as (id, payload) tuples."""
+        rows = self._conn.execute(
+            "SELECT id, payload FROM outbox WHERE drained = 0 ORDER BY enqueued_ts"
+        ).fetchall()
+        return [(r["id"], json.loads(r["payload"])) for r in rows]
+
+    def mark_drained(self, event_id: str) -> None:
+        self._conn.execute("UPDATE outbox SET drained = 1 WHERE id = ?", (event_id,))
+        self._conn.commit()
+
     def get_event(self, event_id: str) -> Optional[InspectionEvent]:
         row = self._conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
         return _row_to_event(row) if row else None

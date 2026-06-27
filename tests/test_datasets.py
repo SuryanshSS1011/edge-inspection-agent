@@ -2,7 +2,7 @@
 
 import pytest
 
-from eval.datasets import load_mvtec
+from eval.datasets import ground_truth_mask, load_mvtec
 
 
 def _make_tree(tmp_path):
@@ -10,11 +10,14 @@ def _make_tree(tmp_path):
     (cat / "test" / "good").mkdir(parents=True)
     (cat / "test" / "broken_large").mkdir(parents=True)
     (cat / "train" / "good").mkdir(parents=True)
+    (cat / "ground_truth" / "broken_large").mkdir(parents=True)
     # good test images
     (cat / "test" / "good" / "000.png").write_bytes(b"x")
     (cat / "test" / "good" / "001.png").write_bytes(b"x")
     # defective test images
     (cat / "test" / "broken_large" / "000.png").write_bytes(b"x")
+    # its pixel-precise mask (MVTec naming: <frame>_mask.png)
+    (cat / "ground_truth" / "broken_large" / "000_mask.png").write_bytes(b"x")
     # a non-image file that must be ignored
     (cat / "test" / "good" / "notes.txt").write_text("ignore")
     # train images (all good)
@@ -42,3 +45,22 @@ def test_train_split_all_good(tmp_path):
 def test_missing_split_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         list(load_mvtec(str(tmp_path), "bottle", "test"))
+
+
+def test_ground_truth_is_not_a_valid_split(tmp_path):
+    # Reading ground_truth as a split would mislabel masks as samples.
+    with pytest.raises(ValueError):
+        list(load_mvtec(str(tmp_path), "bottle", "ground_truth"))
+
+
+def test_mask_lookup_for_defect(tmp_path):
+    root = _make_tree(tmp_path)
+    defect_img = str(root / "bottle" / "test" / "broken_large" / "000.png")
+    mask = ground_truth_mask(defect_img)
+    assert mask is not None and mask.endswith("000_mask.png")
+
+
+def test_mask_lookup_none_for_good(tmp_path):
+    root = _make_tree(tmp_path)
+    good_img = str(root / "bottle" / "test" / "good" / "000.png")
+    assert ground_truth_mask(good_img) is None

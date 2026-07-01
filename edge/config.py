@@ -8,6 +8,7 @@ from pathlib import Path
 
 import yaml
 
+from edge.dotenv import load_dotenv
 from edge.router import Costs, NetworkMode
 
 
@@ -26,6 +27,7 @@ class Config:
 
 
 def load_config(path: str = "config.yaml") -> Config:
+    load_dotenv()  # populate os.environ from .env if present (no-op when absent)
     raw = yaml.safe_load(Path(path).read_text())
     c = raw["costs"]
     costs = Costs(

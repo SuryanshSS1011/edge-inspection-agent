@@ -116,6 +116,11 @@ def diagnose(
     Retries once on malformed/invalid output. Raises CloudConfigError if the API key
     is missing, ValueError if the model output cannot be made to match the schema.
     """
+    try:
+        from edge.dotenv import load_dotenv
+        load_dotenv()  # pick up DASHSCOPE_API_KEY from .env for local runs
+    except Exception:
+        pass  # in the deployed function the vars come from the FC environment
     api_key = os.environ.get("DASHSCOPE_API_KEY")
     if not api_key:
         raise CloudConfigError("DASHSCOPE_API_KEY is not set")

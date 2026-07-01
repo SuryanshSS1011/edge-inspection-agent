@@ -10,6 +10,7 @@ URL is given, in-band items act locally (no escalation) — actuation never bloc
 """
 
 import argparse
+import os
 
 from edge.actuator import MockActuator, UsbRelayActuator
 from edge.calibration import load as load_temperature
@@ -30,9 +31,13 @@ def build_live(args, config) -> Orchestrator:
     except (FileNotFoundError, ValueError):
         temperature = 1.0  # uncalibrated until the calibration fit has been run
 
-    actuator = UsbRelayActuator(args.relay_port) if args.relay_port else MockActuator()
-    cloud = CloudClient(args.cloud_url) if args.cloud_url else None
-    privacy = PrivacyFilter() if args.cloud_url else None
+    # CLI flags win; otherwise fall back to .env (EDGE_RELAY_PORT / EDGE_CLOUD_URL).
+    relay_port = args.relay_port or os.environ.get("EDGE_RELAY_PORT") or None
+    cloud_url = args.cloud_url or os.environ.get("EDGE_CLOUD_URL") or None
+
+    actuator = UsbRelayActuator(relay_port) if relay_port else MockActuator()
+    cloud = CloudClient(cloud_url) if cloud_url else None
+    privacy = PrivacyFilter() if cloud_url else None
     store = Store(config.paths.db)
 
     probe_fn = (lambda: (cloud.healthz(), 0.0)) if cloud else None

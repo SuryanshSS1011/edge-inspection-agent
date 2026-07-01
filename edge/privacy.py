@@ -139,5 +139,11 @@ class PrivacyFilter:
                 scrubbed[key] = value
                 crossings.append(CrossingRecord(field=f"context.{key}", nbytes=nbytes,
                                                 is_pii=False))
-            # keys neither allowed nor explicitly PII are silently dropped (not sent)
+                continue
+            # Unlisted keys are dropped (default-deny) AND logged as blocked, so the audit
+            # trail proves the filter caught an unanticipated identifier — not just known
+            # PII. is_pii=True because an unknown field could carry PII; blocked=True so it
+            # never counts as egress.
+            crossings.append(CrossingRecord(field=f"context.{key}", nbytes=nbytes,
+                                            is_pii=True, blocked=True))
         return scrubbed, crossings

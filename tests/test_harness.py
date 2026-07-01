@@ -116,3 +116,17 @@ def test_reconnect_counts_one_drain_set_not_two():
     expected = (n_def / n_items) * 1000 * _c_cloud(results) * BATCH_DISCOUNT
     reconnect = _row_cost(to_markdown(results), "Reconnect / sync")
     assert abs(reconnect - expected) < 1.0
+
+
+def test_reconnect_undiscounted_equals_hybrid_live():
+    # The conclusion must not depend on the batching discount: undiscounted, the deferred
+    # drain is the SAME band items at the SAME per-call price as hybrid's live escalations,
+    # so reconnect(undiscounted) == hybrid live cost. This is what lets us drop the 10%
+    # and still keep reconnect <= hybrid <= cloud-everything.
+    from eval.make_table import _c_cloud
+    results = run_all(_stream(400), COSTS, seeds=(0,))
+    n_def = max(results[c]["result"].n_deferred for c in results)
+    n_items = results["hybrid_full"]["result"].n_items
+    undiscounted = (n_def / n_items) * 1000 * _c_cloud(results)
+    hybrid_live = results["hybrid_full"]["result"].cloud_cost_per_1k
+    assert abs(undiscounted - hybrid_live) < 1.0

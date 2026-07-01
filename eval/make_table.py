@@ -68,10 +68,14 @@ def to_markdown(results: dict) -> str:
         "inspected**. Per-mode columns measure egress **under that network condition** — "
         "offline/degraded show $0 / 0 bytes because the device decides locally with no cloud "
         "call. The deferred diagnoses are drained once in the reconnect/sync row (degraded "
-        "and offline defer the *same* band items, so it's one drain set, not two). The "
-        "batched drain lands **below** live hybrid cost, so the degradation path is cheaper "
-        "than always calling the cloud — never more expensive. Deferred diagnoses reconcile "
-        "the **log**, not the action: the offline decision was already made locally."
+        "and offline defer the *same* band items, so it's one drain set, not two). "
+        f"The reconnect figure applies a **{int((1-BATCH_DISCOUNT)*100)}% batching "
+        "assumption** (a batched drain amortizes per-call overhead vs. live one-at-a-time "
+        "calls); it is modeled, not measured. The conclusion does **not** depend on it: "
+        "*undiscounted*, the reconnect cost equals live hybrid cost (same band items, same "
+        "per-call price), so it is ≤ hybrid and far below cloud-everything either way. "
+        "Deferred diagnoses reconcile the **log**, not the action: the offline decision was "
+        "already made locally."
     )
     return "\n".join(lines)
 

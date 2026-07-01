@@ -13,7 +13,7 @@ model confidence. See [`docs/router_derivation.md`](docs/router_derivation.md).
 | Milestone | What | State |
 |---|---|---|
 | M3 | Cost-aware router + unit tests (core IP) | ✅ done, 14 tests green |
-| M1 | Cloud MCP tool on Alibaba Cloud | ✅ code done; deploy + live exit-check pending creds |
+| M1 | Cloud reasoning (MCP + HTTP) | ✅ live exit-check passed (real Qwen-VL, ~2.1s); FC deploy pending |
 | M2 | ONNX perception + temperature calibration | ✅ done; real fit on bottle data, ECE 0.0585→0.0503 |
 | M4 | Actuation + local log + full-mode loop | ✅ done; cloud-independent, 10 tests |
 | M5 | Privacy filter + boundary log | ✅ done; measured zero PII egress, 9 tests |
@@ -26,7 +26,7 @@ Build order and exit checks: `../EdgeAgent_Implementation_Plan.md` §5.
 ## Layout
 ```
 edge/    perception, router, privacy, network, outbox, actuation, store, orchestrator
-cloud/   Qwen-VL MCP tool + Alibaba Cloud deploy config
+cloud/   Qwen-VL reasoning: MCP-native tool + HTTP deploy for Alibaba Function Compute
 eval/    MVTec loader, metrics, run scripts, results-table generator
 demo/    network toggle, demo runner
 docs/    architecture, router derivation, privacy model

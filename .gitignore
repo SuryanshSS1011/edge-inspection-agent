@@ -9,3 +9,4 @@ models/temperature.json
 data/
 eval/results.json
 eval/fixtures/
+models/mobilenetv2.onnx

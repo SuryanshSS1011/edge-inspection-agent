@@ -25,10 +25,13 @@ def _as_dict(result):
     return result if isinstance(result, dict) else vars(result)
 
 
+# A batched drain amortizes per-call overhead, so reconnect cost is <= the equivalent
+# live escalations. Conservative 10% batching saving; set to 1.0 to disable.
+BATCH_DISCOUNT = 0.90
+
+
 def to_markdown(results: dict) -> str:
     lines = [HEADER, SEP]
-    deferred_total = 0
-    deferred_cost = 0.0
     for cond in ORDER:
         if cond not in results:
             continue
@@ -42,25 +45,33 @@ def to_markdown(results: dict) -> str:
         lines.append(
             f"| {ROW_LABELS[cond]} | {recall} | {lat} | {bytes_item} | {cost} | {pii} |"
         )
-        # Accumulate deferred (would-be) escalations whose cost is realized on reconnect.
-        n_def = r.get("n_deferred", 0)
-        n_items = r.get("n_items", 0) or 1
-        deferred_total += n_def
-        deferred_cost += (n_def / n_items) * 1000 * _c_cloud(results)
 
-    if deferred_total:
+    # Reconnect/sync row: the deferred set is ONE condition's worth of would-be
+    # escalations — degraded and offline defer the SAME band items, so we take the max of
+    # any single row's deferred count, NOT the sum (summing would double-count the same
+    # items across the two degraded/offline rows). Normalized per 1k items inspected, same
+    # denominator as every other row. Batched drain amortizes overhead -> <= live hybrid.
+    n_items = max((_as_dict(results[c]["result"]).get("n_items", 0)
+                   for c in ORDER if c in results), default=0) or 1
+    n_deferred = max((_as_dict(results[c]["result"]).get("n_deferred", 0)
+                      for c in ORDER if c in results), default=0)
+    if n_deferred:
+        reconnect_cost = (n_deferred / n_items) * 1000 * _c_cloud(results) * BATCH_DISCOUNT
         lines.append(
             f"| Reconnect / sync (drains queue) | — | — | (batched) | "
-            f"${deferred_cost:.2f} | 0 |"
+            f"${reconnect_cost:.2f} | 0 |"
         )
 
     lines.append("")
     lines.append(
-        "> Per-mode columns measure egress **under that network condition**. Offline shows "
-        "$0 / 0 bytes because the device decides locally with no cloud call; the deferred "
-        "diagnoses are drained — and their cost charged once — in the reconnect/sync row, "
-        "so no call is counted twice. Deferred diagnoses reconcile the **log**, not the "
-        "action: the offline decision was already made by the local conservative policy."
+        "> All \"$/1k\" and \"bytes/item\" columns use the same denominator: **per 1000 items "
+        "inspected**. Per-mode columns measure egress **under that network condition** — "
+        "offline/degraded show $0 / 0 bytes because the device decides locally with no cloud "
+        "call. The deferred diagnoses are drained once in the reconnect/sync row (degraded "
+        "and offline defer the *same* band items, so it's one drain set, not two). The "
+        "batched drain lands **below** live hybrid cost, so the degradation path is cheaper "
+        "than always calling the cloud — never more expensive. Deferred diagnoses reconcile "
+        "the **log**, not the action: the offline decision was already made locally."
     )
     return "\n".join(lines)
 

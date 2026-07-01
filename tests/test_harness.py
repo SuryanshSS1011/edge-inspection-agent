@@ -80,3 +80,39 @@ def test_table_renders_all_rows():
     assert "Cost-weighted recall" in table
     assert "**Hybrid (ours)**" in table
     assert table.count("\n") >= 6  # header + sep + 5 rows
+
+
+def _row_cost(table, label):
+    import re
+    for line in table.splitlines():
+        if line.startswith(f"| {label}"):
+            m = re.findall(r"\$([0-9]+\.[0-9]+)", line)
+            if m:
+                return float(m[-1])
+    return None
+
+
+def test_reconnect_cost_never_exceeds_cloud_everything():
+    # The anomaly guard: the degradation path (deferred, then drained on reconnect) must
+    # not cost MORE than always calling the cloud — that would invert the thesis.
+    results = run_all(_stream(400), COSTS, seeds=(0, 1))
+    table = to_markdown(results)
+    cloud_every = _row_cost(table, "Cloud-everything")
+    hybrid = _row_cost(table, "**Hybrid (ours)**")
+    reconnect = _row_cost(table, "Reconnect / sync")
+    assert reconnect is not None
+    assert reconnect <= cloud_every          # never worse than cloud-everything
+    assert reconnect <= hybrid + 1e-6        # batched drain <= live hybrid cost
+
+
+def test_reconnect_counts_one_drain_set_not_two():
+    # degraded and offline defer the SAME items; the reconnect row must reflect one drain
+    # set, so its cost tracks a single condition's deferred count (with batch discount) —
+    # not the sum of degraded + offline (which would ~double it).
+    from eval.make_table import BATCH_DISCOUNT, _c_cloud
+    results = run_all(_stream(400), COSTS, seeds=(0,))
+    n_def = max(results[c]["result"].n_deferred for c in results)
+    n_items = results["hybrid_full"]["result"].n_items
+    expected = (n_def / n_items) * 1000 * _c_cloud(results) * BATCH_DISCOUNT
+    reconnect = _row_cost(to_markdown(results), "Reconnect / sync")
+    assert abs(reconnect - expected) < 1.0

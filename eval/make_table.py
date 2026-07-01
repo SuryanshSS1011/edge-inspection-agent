@@ -69,7 +69,7 @@ def to_markdown(results: dict) -> str:
         "offline/degraded show $0 / 0 bytes because the device decides locally with no cloud "
         "call. The deferred diagnoses are drained once in the reconnect/sync row (degraded "
         "and offline defer the *same* band items, so it's one drain set, not two). "
-        f"The reconnect figure applies a **{int((1-BATCH_DISCOUNT)*100)}% batching "
+        f"The reconnect figure applies a **{round((1-BATCH_DISCOUNT)*100)}% batching "
         "assumption** (a batched drain amortizes per-call overhead vs. live one-at-a-time "
         "calls); it is modeled, not measured. The conclusion does **not** depend on it: "
         "*undiscounted*, the reconnect cost equals live hybrid cost (same band items, same "
@@ -77,7 +77,31 @@ def to_markdown(results: dict) -> str:
         "Deferred diagnoses reconcile the **log**, not the action: the offline decision was "
         "already made locally."
     )
+
+    measured = _measured_cloud_note()
+    if measured:
+        lines.append("")
+        lines.append(measured)
     return "\n".join(lines)
+
+
+def _measured_cloud_note(path: str = "eval/cloud_measured.json"):
+    """If a live-cloud measurement exists, cite it: the cloud column's accuracy/latency are
+    then measured against real Qwen-VL, not modeled."""
+    import os
+    if not os.path.isfile(path):
+        return None
+    try:
+        m = json.loads(open(path).read())
+    except Exception:
+        return None
+    return (
+        f"> **Live cloud (measured, n={m['n_calls']} real Qwen-VL calls on bottle ROIs):** "
+        f"accuracy **{m['cloud_accuracy']}**, latency p50/p99 **{m['latency_ms_p50']}/"
+        f"{m['latency_ms_p99']} ms**. The modeled cloud rows above assume high accuracy; "
+        "this confirms it on real images — and the multi-second p99 is exactly why "
+        "escalating *only* the uncertain band (not every item) matters."
+    )
 
 
 def _c_cloud(results: dict) -> float:

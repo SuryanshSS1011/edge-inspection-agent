@@ -25,8 +25,9 @@ resources:
       cpu: 0.5
       memorySize: 1024
       timeout: 60
-      # Ship the whole repo so `cloud.*` and the bootstrap resolve.
-      codeUri: ../../
+      # Ship the whole repo so `cloud.*` and the bootstrap resolve. fc3 uses `code`
+      # (a directory or zip path), not the older `codeUri`.
+      code: ../../
       customRuntimeConfig:
         command:
           - bash

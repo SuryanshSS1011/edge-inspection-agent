@@ -9,7 +9,7 @@
 
 edition: 3.0.0
 name: edge-inspection-cloud
-access: default
+access: tollgate
 
 vars:
   region: ap-southeast-1   # match the region your Qwen Cloud voucher is provisioned in

@@ -24,7 +24,23 @@ from typing import List, Tuple
 import numpy as np  # type: ignore
 
 from eval.datasets import load_mvtec
-from eval.features import FEATURE_DIM, extract_many
+from eval import features as handcrafted
+
+
+def _backbone(name):
+    """Return (extract_many, feature_dim) for the chosen feature backbone.
+
+    handcrafted: lightweight color/edge/variance features (eval/features.py).
+    mobilenet:   frozen MobileNetV2 ONNX embeddings (eval/mobilenet_features.py).
+    Both feed the SAME LogisticRegression + temperature head; the router, privacy filter,
+    and outbox are unchanged — that's the point of the drop-in interface.
+    """
+    if name == "handcrafted":
+        return handcrafted.extract_many, handcrafted.FEATURE_DIM
+    if name == "mobilenet":
+        from eval import mobilenet_features as mb
+        return mb.extract_many, mb.FEATURE_DIM
+    raise ValueError(f"unknown backbone {name!r} (use 'handcrafted' or 'mobilenet')")
 
 
 def _split_paths(data: str, category: str, seed: int = 0):
@@ -55,20 +71,20 @@ def _split_paths(data: str, category: str, seed: int = 0):
     return labeled(g_tr, d_tr), labeled(g_cal, d_cal), labeled(g_ev, d_ev)
 
 
-def _xy(items: List[Tuple[str, int]]):
+def _xy(items: List[Tuple[str, int]], extract_many):
     X = extract_many([p for p, _ in items])
     y = np.array([l for _, l in items], dtype=np.int64)
     return X, y
 
 
-def export_onnx(model, scaler, out_path: str) -> None:
+def export_onnx(model, scaler, out_path: str, feature_dim: int) -> None:
     """Export scaler -> logistic regression as a single ONNX graph emitting the defect logit."""
     from skl2onnx import convert_sklearn
     from skl2onnx.common.data_types import FloatTensorType
     from sklearn.pipeline import make_pipeline
 
     pipe = make_pipeline(scaler, model)
-    initial = [("input", FloatTensorType([None, FEATURE_DIM]))]
+    initial = [("input", FloatTensorType([None, feature_dim]))]
     # zipmap=False keeps a plain score tensor; we read the decision logit from raw scores.
     # target_opset 17 stays within onnxruntime's official support range (<=21).
     onnx_model = convert_sklearn(
@@ -81,15 +97,17 @@ def export_onnx(model, scaler, out_path: str) -> None:
         fh.write(onnx_model.SerializeToString())
 
 
-def train_and_export(data, category, model_out, splits_out, seed=0):
+def train_and_export(data, category, model_out, splits_out, seed=0, backbone="handcrafted"):
     """Train the modest classifier for one category and export model + frozen splits.
 
-    Returns the train accuracy (modest by design)."""
+    `backbone` selects the feature extractor ('handcrafted' | 'mobilenet'). The head and
+    everything downstream is identical either way. Returns the train accuracy."""
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
 
+    extract_many, feature_dim = _backbone(backbone)
     train, calib, ev = _split_paths(data, category, seed)
-    Xtr, ytr = _xy(train)
+    Xtr, ytr = _xy(train, extract_many)
 
     scaler = StandardScaler().fit(Xtr)
     # Deliberately modest: light regularization, no heroics — we want calibratable
@@ -97,11 +115,11 @@ def train_and_export(data, category, model_out, splits_out, seed=0):
     clf = LogisticRegression(C=0.5, max_iter=1000, class_weight="balanced")
     clf.fit(scaler.transform(Xtr), ytr)
 
-    export_onnx(clf, scaler, model_out)
+    export_onnx(clf, scaler, model_out, feature_dim)
     Path(splits_out).parent.mkdir(parents=True, exist_ok=True)
     Path(splits_out).write_text(json.dumps({
         "train": train, "calibration": calib, "eval": ev,
-        "category": category, "seed": seed,
+        "category": category, "seed": seed, "backbone": backbone,
     }, indent=2))
     return clf.score(scaler.transform(Xtr), ytr)
 
@@ -111,12 +129,15 @@ def main() -> None:
     parser.add_argument("--data", default="data")
     parser.add_argument("--category", default="bottle")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--backbone", default="handcrafted",
+                        choices=["handcrafted", "mobilenet"])
     parser.add_argument("--model-out", default="models/classifier.onnx")
     parser.add_argument("--splits-out", default="models/splits.json")
     args = parser.parse_args()
 
-    acc = train_and_export(args.data, args.category, args.model_out, args.splits_out, args.seed)
-    print(f"train accuracy: {acc:.3f}  (modest by design)")
+    acc = train_and_export(args.data, args.category, args.model_out, args.splits_out,
+                           args.seed, backbone=args.backbone)
+    print(f"backbone: {args.backbone}  train accuracy: {acc:.3f}")
     print(f"wrote {args.model_out} and {args.splits_out}")
 
 

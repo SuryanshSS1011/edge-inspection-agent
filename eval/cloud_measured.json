@@ -1,0 +1,93 @@
+{
+  "n_calls": 12,
+  "cloud_accuracy": 1.0,
+  "latency_ms_p50": 3676,
+  "latency_ms_p99": 12443,
+  "latency_ms_mean": 4821,
+  "records": [
+    {
+      "path": "broken_small/005.png",
+      "label": 1,
+      "local_p": 0.127,
+      "cloud_pred": 1,
+      "latency_ms": 3395
+    },
+    {
+      "path": "broken_small/008.png",
+      "label": 1,
+      "local_p": 0.51,
+      "cloud_pred": 1,
+      "latency_ms": 3841
+    },
+    {
+      "path": "broken_large/010.png",
+      "label": 1,
+      "local_p": 0.855,
+      "cloud_pred": 1,
+      "latency_ms": 3650
+    },
+    {
+      "path": "broken_small/007.png",
+      "label": 1,
+      "local_p": 0.78,
+      "cloud_pred": 1,
+      "latency_ms": 3676
+    },
+    {
+      "path": "good/078.png",
+      "label": 0,
+      "local_p": 0.085,
+      "cloud_pred": 0,
+      "latency_ms": 12443
+    },
+    {
+      "path": "good/184.png",
+      "label": 0,
+      "local_p": 0.081,
+      "cloud_pred": 0,
+      "latency_ms": 3421
+    },
+    {
+      "path": "good/199.png",
+      "label": 0,
+      "local_p": 0.107,
+      "cloud_pred": 0,
+      "latency_ms": 3518
+    },
+    {
+      "path": "good/113.png",
+      "label": 0,
+      "local_p": 0.144,
+      "cloud_pred": 0,
+      "latency_ms": 3691
+    },
+    {
+      "path": "good/121.png",
+      "label": 0,
+      "local_p": 0.148,
+      "cloud_pred": 0,
+      "latency_ms": 3647
+    },
+    {
+      "path": "good/007.png",
+      "label": 0,
+      "local_p": 0.032,
+      "cloud_pred": 0,
+      "latency_ms": 9086
+    },
+    {
+      "path": "good/051.png",
+      "label": 0,
+      "local_p": 0.05,
+      "cloud_pred": 0,
+      "latency_ms": 3735
+    },
+    {
+      "path": "good/049.png",
+      "label": 0,
+      "local_p": 0.057,
+      "cloud_pred": 0,
+      "latency_ms": 3754
+    }
+  ]
+}

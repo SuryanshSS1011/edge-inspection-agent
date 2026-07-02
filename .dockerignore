@@ -1,0 +1,14 @@
+# Keep the Docker build context small — the reasoning server only needs cloud/ and edge/.
+data/
+models/
+tests/
+eval/
+demo/
+docs/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+edge.db
+.git/
+.env
+*.md

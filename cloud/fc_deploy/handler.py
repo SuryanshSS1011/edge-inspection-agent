@@ -58,7 +58,9 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    port = int(os.environ.get("FC_SERVER_PORT", "9000"))
+    # FC sets FC_SERVER_PORT; Docker/SAS conventionally use PORT. Honor both, default 9000.
+    port = int(os.environ.get("FC_SERVER_PORT") or os.environ.get("PORT") or "9000")
+    print(f"[cloud] diagnose_defect HTTP server listening on 0.0.0.0:{port}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
 

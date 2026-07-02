@@ -42,7 +42,7 @@ SYSTEM_PROMPT = (
 )
 
 DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-DEFAULT_MODEL = "qwen-vl-plus"
+DEFAULT_MODEL = "qwen3.7-plus"
 
 
 class CloudConfigError(RuntimeError):

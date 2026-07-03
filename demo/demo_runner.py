@@ -137,8 +137,38 @@ def run_demo(config_path: str = "config.yaml") -> dict:
         _say(f"    reconciled {reconciled} deferred item(s); diagnosis back-filled: "
              f"defect={rdiag.get('defect_present')} type={rdiag.get('defect_type')}")
 
-        # Beat 5: summary from the log.
-        _say("\n[5] Audit summary (from the local log):")
+        # Beat 5: MCP tool interface — same diagnosis_defect, called as an agent tool.
+        _say("\n[5] MCP tool interface — calling diagnose_defect as an agent tool...")
+        import base64
+        import cloud.mcp_server as mcp_srv
+        # Patch the Qwen call so the MCP beat runs without a real API key in the demo.
+        _orig_diagnose = mcp_srv.diagnose
+
+        def _mock_diagnose(roi, embedding, context):
+            return {
+                "defect_present": True,
+                "defect_type": "surface_scratch",
+                "confidence": 0.91,
+                "root_cause": "abrasion during handling",
+                "recommended_action": "reject",
+            }
+
+        mcp_srv.diagnose = _mock_diagnose
+        try:
+            mcp_result = mcp_srv.diagnose_defect(
+                roi_png_b64=base64.b64encode(b"\x89PNG\r\n").decode(),
+                context={"category": "bottle"},
+            )
+        finally:
+            mcp_srv.diagnose = _orig_diagnose
+
+        _say(f"    tool: diagnose_defect(roi_png_b64=<54 bytes>, context={{category: bottle}})")
+        _say(f"    -> defect={mcp_result['defect_present']} type={mcp_result['defect_type']} "
+             f"confidence={mcp_result['confidence']} cause='{mcp_result['root_cause']}'")
+        _say("    (same code path as HTTP /diagnose — MCP and REST share one implementation)")
+
+        # Beat 6: summary from the log.
+        _say("\n[6] Audit summary (from the local log):")
         events = orch.store.all_events()
         total_pii = sum(e.pii_bytes for e in events)
         total_bytes = sum(e.bytes_to_cloud for e in events)

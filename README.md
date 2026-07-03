@@ -2,6 +2,8 @@
 
 **An edge inspection agent that knows when it needs the cloud — and keeps working when the cloud is gone.**
 
+![Architecture](assets/architecture.png)
+
 ## The idea
 
 Most inspection systems bolt on privacy, offline support, and cloud orchestration as separate features. EdgeAgent derives all three from one decision: **route frames to the cloud based on cost, not confidence**.

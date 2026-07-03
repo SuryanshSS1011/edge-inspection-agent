@@ -1,5 +1,5 @@
 # Cloud reasoning HTTP server for Alibaba Simple Application Server (SAS) — or any Docker host.
-# Serves diagnose_defect over HTTP (/healthz, /diagnose) via cloud/fc_deploy/handler.py.
+# Serves diagnose_defect over HTTP (/healthz, /diagnose) via cloud/handler.py.
 # The reasoning path is pure stdlib + urllib (calls Qwen-VL over HTTPS), so the image is tiny
 # and needs no ONNX/cv2/torch — those are edge-only.
 
@@ -20,4 +20,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # DASHSCOPE_API_KEY / QWEN_MODEL / QWEN_BASE_URL are injected at runtime (--env-file .env).
-CMD ["python", "-m", "cloud.fc_deploy.handler"]
+CMD ["python", "-m", "cloud.handler"]

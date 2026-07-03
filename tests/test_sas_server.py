@@ -8,7 +8,7 @@ from http.server import ThreadingHTTPServer
 
 import pytest
 
-import cloud.fc_deploy.handler as handler
+import cloud.handler as handler
 import cloud.mcp_server as srv
 from edge.cloud_client import CloudClient
 

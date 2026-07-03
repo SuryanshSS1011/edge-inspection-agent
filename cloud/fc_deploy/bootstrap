@@ -1,6 +1,0 @@
-#!/bin/bash
-# Alibaba Function Compute custom-runtime entrypoint. FC sets FC_SERVER_PORT and
-# expects an HTTP server listening on it. Run from the code root so `cloud` imports.
-cd /code || cd "$(dirname "$0")/../.."
-export PYTHONPATH="$(pwd):${PYTHONPATH}"
-exec python3 -m cloud.fc_deploy.handler

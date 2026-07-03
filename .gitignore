@@ -7,6 +7,14 @@ models/temperature.json
 .env
 *.egg-info/
 data/
+docs/
 eval/results.json
 eval/fixtures/
 models/mobilenetv2.onnx
+models/splits.json
+models/*.splits.json
+# root planning/competition files
+Build Session FAQ.md
+EdgeAgent_Build_Plan.md
+EdgeAgent_Implementation_Plan.md
+"QwenCloud AI Hackathon.pdf"

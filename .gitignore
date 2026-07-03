@@ -8,6 +8,7 @@ models/temperature.json
 *.egg-info/
 data/
 docs/
+demo/SCRIPT.md
 eval/results.json
 eval/fixtures/
 models/mobilenetv2.onnx

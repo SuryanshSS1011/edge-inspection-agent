@@ -69,6 +69,10 @@ python -m eval.run_real_eval
 python -m eval.run_multi_category
 ```
 
+## Limitations
+
+**Calibration drift**: the escalation band is derived from a temperature-scaled classifier fitted offline. If the factory environment shifts (lighting changes, lens dust, camera vibration), the edge model's confidence distribution can drift and the calibrated probabilities become stale. This breaks the cost inequality: the band either floods the cloud with unnecessary escalations or lets marginal defects through locally. The mitigation is periodic recalibration triggered by a statistical drift detector (e.g. a KS test on the rolling confidence distribution) rather than a fixed schedule. This is not implemented yet and is the most important production gap to close.
+
 ## Config
 
 All costs live in `config.yaml`. The escalation band is **derived** from them, never hand-tuned.

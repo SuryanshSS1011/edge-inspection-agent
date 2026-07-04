@@ -56,3 +56,58 @@ def test_unreachable_raises():
     assert client.healthz() is False
     with pytest.raises(CloudUnreachable):
         client.diagnose(roi_png_b64=base64.b64encode(b"PNG").decode())
+
+
+def test_429_retried_then_succeeds(live_server, monkeypatch):
+    """First call returns 429, second succeeds — client retries transparently."""
+    import urllib.error
+    call_count = {"n": 0}
+    original_diagnose = srv.diagnose
+
+    def flaky_diagnose(roi, emb, ctx):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise urllib.error.HTTPError(
+                url="", code=429, msg="Too Many Requests", hdrs=None, fp=None
+            )
+        return original_diagnose(roi, emb, ctx)
+
+    monkeypatch.setattr(srv, "diagnose", flaky_diagnose)
+    client = CloudClient(live_server, max_attempts=3)
+    out = client.diagnose(roi_png_b64=base64.b64encode(b"PNG").decode())
+    assert out["defect_present"] is True
+    assert call_count["n"] == 2
+
+
+def test_429_exhausted_raises_unreachable(monkeypatch):
+    """All attempts return 429 — CloudUnreachable is raised after max_attempts."""
+    import urllib.error
+    from unittest.mock import patch
+
+    http_err = urllib.error.HTTPError(
+        url="", code=429, msg="Too Many Requests", hdrs=None, fp=None
+    )
+    client = CloudClient("http://127.0.0.1:1", timeout_s=0.5, max_attempts=2)
+    with patch("urllib.request.urlopen", side_effect=http_err):
+        with pytest.raises(CloudUnreachable):
+            client.diagnose(roi_png_b64=base64.b64encode(b"PNG").decode())
+
+
+def test_4xx_not_retried(monkeypatch):
+    """400 Bad Request is not retryable — should raise CloudUnreachable immediately."""
+    import urllib.error
+    from unittest.mock import patch
+
+    call_count = {"n": 0}
+
+    def counting_urlopen(*a, **kw):
+        call_count["n"] += 1
+        raise urllib.error.HTTPError(
+            url="", code=400, msg="Bad Request", hdrs=None, fp=None
+        )
+
+    client = CloudClient("http://127.0.0.1:1", timeout_s=0.5, max_attempts=3)
+    with patch("urllib.request.urlopen", side_effect=counting_urlopen):
+        with pytest.raises((CloudUnreachable, urllib.error.HTTPError)):
+            client.diagnose(roi_png_b64=base64.b64encode(b"PNG").decode())
+    assert call_count["n"] == 1  # no retries

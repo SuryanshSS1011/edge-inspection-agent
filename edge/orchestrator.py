@@ -62,6 +62,7 @@ class Orchestrator:
         """Process every frame from the source to completion. Returns the events logged."""
         events = []
         for frame in self.source.frames():
+            self.network.probe()  # update FULL/DEGRADED/OFFLINE before each frame
             events.append(self.process_frame(frame))
         return events
 
@@ -239,15 +240,27 @@ class Orchestrator:
     def _load_reference_distribution(self):
         """Load the reference confidence distribution saved alongside the calibration.
         Returns None if the file doesn't exist or lacks the key."""
+        import logging
         import json
         from pathlib import Path
+        _log = logging.getLogger(__name__)
         cal_path = Path(self.config.paths.calibration)
         if not cal_path.exists():
             return None
         try:
             data = json.loads(cal_path.read_text())
-            return data.get("reference_confidences")
-        except Exception:
+            ref = data.get("reference_confidences")
+            if ref is None:
+                _log.warning(
+                    "calibration file %s has no reference_confidences — "
+                    "drift detection disabled; re-run eval.fit_calibration", cal_path
+                )
+            return ref
+        except Exception as exc:
+            _log.warning(
+                "failed to load reference distribution from %s: %s — "
+                "drift detection disabled", cal_path, exc
+            )
             return None
 
     def _in_band(self, p: float) -> bool:

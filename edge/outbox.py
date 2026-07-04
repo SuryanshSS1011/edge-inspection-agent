@@ -8,10 +8,13 @@ the already-logged event (outbox_state -> reconciled). Only the non-PII filtered
 is ever persisted, so the queue carries no raw frames.
 """
 
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from edge.store import Store
+
+_log = logging.getLogger(__name__)
 
 _DRAIN_WORKERS = 4
 
@@ -55,7 +58,8 @@ class Outbox:
                 event_id = futures[future]
                 try:
                     event_id, diagnosis = future.result()
-                except Exception:  # noqa: BLE001 - leave queued, retry next reconnect
+                except Exception as exc:  # leave queued, retry next reconnect
+                    _log.warning("outbox drain failed for event %s: %s", event_id, exc)
                     continue
                 self.store.update_diagnosis(event_id, diagnosis)
                 self.store.mark_drained(event_id)

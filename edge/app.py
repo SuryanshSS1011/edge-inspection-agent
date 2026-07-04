@@ -40,7 +40,14 @@ def build_live(args, config) -> Orchestrator:
     privacy = PrivacyFilter() if cloud_url else None
     store = Store(config.paths.db)
 
-    probe_fn = (lambda: (cloud.healthz(), 0.0)) if cloud else None
+    def _probe():
+        import time
+        t0 = time.time()
+        reachable = cloud.healthz()
+        latency_ms = (time.time() - t0) * 1000.0
+        return reachable, latency_ms
+
+    probe_fn = _probe if cloud else None
     return Orchestrator(
         config=config,
         source=WebcamSource(args.camera),

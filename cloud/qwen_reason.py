@@ -18,6 +18,19 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_random_exponential,
+)
+
+
+def _dashscope_retryable(exc: BaseException) -> bool:
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code == 429 or exc.code >= 500
+    return isinstance(exc, (urllib.error.URLError, TimeoutError, OSError))
+
 DIAGNOSIS_SCHEMA_KEYS = {
     "defect_present",     # bool
     "defect_type",        # str
@@ -74,6 +87,12 @@ def _build_messages(roi_png: Optional[bytes], embedding: Optional[list], context
     ]
 
 
+@retry(
+    retry=retry_if_exception(_dashscope_retryable),
+    wait=wait_random_exponential(multiplier=1, min=2, max=30),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
 def _post_chat(messages, *, base_url: str, model: str, api_key: str, timeout: float) -> str:
     body = json.dumps({
         "model": model,

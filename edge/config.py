@@ -6,9 +6,13 @@ Costs feed directly into the router; thresholds are derived, never hand-set.
 from dataclasses import dataclass
 from pathlib import Path
 
+import logging
+
 import yaml
 
 from edge.dotenv import load_dotenv
+
+_log = logging.getLogger(__name__)
 from edge.drift import DriftConfig, ModelDriftConfig
 from edge.router import Costs, NetworkMode
 
@@ -54,8 +58,8 @@ class LiveConfig:
             try:
                 self._config = load_config(self._path)
                 self._mtime = mtime
-            except Exception:
-                pass  # keep previous config on parse error
+            except Exception as exc:
+                _log.warning("config reload failed, retaining previous values: %s", exc)
         return self._config
 
 

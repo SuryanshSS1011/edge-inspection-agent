@@ -30,7 +30,7 @@ Measured on real MVTec industrial data across six categories:
 | Local-only | 0.951 | 0% | 0 |
 
 - Six-category robustness: **0.969 ± 0.015** (spread tightened as categories were added)
-- Cloud measured live: **100% accuracy**, p99 **12.4 s**. Exactly why you escalate only the uncertain band.
+- Cloud measured live: **100% accuracy**, p50 **3.7 s**, mean **4.8 s**, p99 **12.4 s** (single cold-start spike). Exactly why you escalate only the uncertain band.
 - Backbone ablation: hybrid delta **-0.024 to +0.023** across backbone swaps. The router absorbs local-model variance.
 - **148 tests** green
 

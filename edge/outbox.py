@@ -8,9 +8,12 @@ the already-logged event (outbox_state -> reconciled). Only the non-PII filtered
 is ever persisted, so the queue carries no raw frames.
 """
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from edge.store import Store
+
+_DRAIN_WORKERS = 4
 
 
 class Outbox:
@@ -28,19 +31,33 @@ class Outbox:
     def pending_count(self) -> int:
         return len(self.store.pending_outbox())
 
-    def drain(self, call_cloud: Callable[[dict], dict]) -> int:
-        """On reconnect: send each queued payload to the cloud, write the diagnosis back
-        onto its event (reconciled), mark it drained. Returns the number reconciled.
+    def drain(self, call_cloud: Callable[[dict], dict], workers: int = _DRAIN_WORKERS) -> int:
+        """On reconnect: send queued payloads to the cloud concurrently, write each
+        diagnosis back onto its event, mark it drained. Returns the number reconciled.
 
-        A payload that fails (cloud still unreachable) is left queued for the next drain.
+        Payloads that fail (cloud still unreachable) are left queued for the next drain.
+        Up to `workers` requests run in parallel to avoid sequential backlog after a long
+        offline period.
         """
+        pending = self.store.pending_outbox()
+        if not pending:
+            return 0
+
+        def _call(item):
+            event_id, payload = item
+            diagnosis = call_cloud(payload)
+            return event_id, diagnosis
+
         reconciled = 0
-        for event_id, payload in self.store.pending_outbox():
-            try:
-                diagnosis = call_cloud(payload)
-            except Exception:  # noqa: BLE001 - leave it queued and try again next reconnect
-                continue
-            self.store.update_diagnosis(event_id, diagnosis)
-            self.store.mark_drained(event_id)
-            reconciled += 1
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_call, item): item[0] for item in pending}
+            for future in as_completed(futures):
+                event_id = futures[future]
+                try:
+                    event_id, diagnosis = future.result()
+                except Exception:  # noqa: BLE001 - leave queued, retry next reconnect
+                    continue
+                self.store.update_diagnosis(event_id, diagnosis)
+                self.store.mark_drained(event_id)
+                reconciled += 1
         return reconciled

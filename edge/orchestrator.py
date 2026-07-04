@@ -14,7 +14,7 @@ from typing import Optional
 from edge.actuator import Actuator
 from edge.cloud_client import CloudClient, CloudUnreachable
 from edge.config import Config
-from edge.drift import DriftDetector, DriftState
+from edge.drift import DriftDetector, DriftState, ModelDriftMonitor
 from edge.frame_source import FrameSource
 from edge.network import NetworkController
 from edge.outbox import Outbox
@@ -55,7 +55,8 @@ class Orchestrator:
         self.privacy = privacy
         self.outbox = outbox
         self.category = category  # non-PII context label sent with escalations
-        self._drift: DriftDetector | None = None  # initialised on first frame
+        self._drift: DriftDetector | None = None      # initialised on first frame with cal data
+        self._model_drift = ModelDriftMonitor(config.model_drift)
 
     def run(self) -> list:
         """Process every frame from the source to completion. Returns the events logged."""
@@ -158,7 +159,18 @@ class Orchestrator:
             # Cloud gone mid-call: fall back to the local action, log no diagnosis.
             return local_action(p, costs), True, bytes_to_cloud, pii_bytes, None
 
-        action = Action.REJECT if diagnosis.get("defect_present") else Action.PASS
+        cloud_defect = bool(diagnosis.get("defect_present"))
+        action = Action.REJECT if cloud_defect else Action.PASS
+        edge_defect = local_action(p, costs) == Action.REJECT
+        self._model_drift.record(edge_defect, cloud_defect)
+        if self._model_drift.is_drifted:
+            import logging
+            logging.getLogger(__name__).warning(
+                "edge-vs-cloud disagreement rate %.0f%% over last %d frames — "
+                "consider recalibrating the edge model",
+                self._model_drift.disagreement_rate * 100,
+                self.config.model_drift.window,
+            )
         return action, True, bytes_to_cloud, pii_bytes, diagnosis
 
     def _defer(self, event_id: str, frame, ts: float) -> str:
@@ -206,6 +218,11 @@ class Orchestrator:
     @property
     def drift_state(self) -> DriftState:
         return self._drift.state if self._drift else DriftState.OK
+
+    @property
+    def model_drift_rate(self) -> float:
+        """Rolling edge-vs-cloud disagreement rate over recent escalated frames."""
+        return self._model_drift.disagreement_rate
 
     def _check_drift(self, p: float) -> bool:
         """Lazy-init the drift detector from the reference distribution stored in the

@@ -32,7 +32,7 @@ Measured on real MVTec industrial data across six categories:
 - Six-category robustness: **0.969 ± 0.015** (spread tightened as categories were added)
 - Cloud measured live: **100% accuracy**, p99 **12.4 s**. Exactly why you escalate only the uncertain band.
 - Backbone ablation: hybrid delta **-0.024 to +0.023** across backbone swaps. The router absorbs local-model variance.
-- **130 tests** green
+- **148 tests** green
 
 ## Stack
 
@@ -69,9 +69,17 @@ python -m eval.run_real_eval
 python -m eval.run_multi_category
 ```
 
-## Limitations
+## Robustness features
 
-**Calibration drift**: the escalation band is derived from a temperature-scaled classifier fitted offline. If the factory environment shifts (lighting changes, lens dust, camera vibration), the edge model's confidence distribution can drift and the calibrated probabilities become stale. This breaks the cost inequality: the band either floods the cloud with unnecessary escalations or lets marginal defects through locally. EdgeAgent addresses this with a KS-test drift detector (`edge/drift.py`) that watches the rolling confidence window every 50 frames and switches to conservative mode (escalate everything) when the KS statistic exceeds the configured threshold. The reference distribution is saved alongside the temperature scalar at calibration time and reloaded on startup.
+**Calibration drift detection**: a KS-test detector (`edge/drift.py`) watches the rolling confidence window every 50 frames against the reference distribution saved at calibration time. When the KS statistic exceeds the threshold it switches to conservative mode (escalate everything) until the operator recalibrates, preventing stale probabilities from silently breaking the cost inequality.
+
+**Edge-vs-cloud model drift monitoring**: a rolling disagreement tracker compares local edge decisions against cloud diagnoses on every escalated frame. When disagreement exceeds 20% over the last 100 escalated frames, the orchestrator logs a warning that edge and VLM have drifted apart and recalibration is needed. No ground-truth labels required.
+
+**Concurrent outbox drain**: on reconnect after an offline period, queued escalations are sent to the cloud with a `ThreadPoolExecutor` (4 workers by default) rather than sequentially, preventing API backlogs after extended outages.
+
+**Privacy anonymization**: skin-tone regions within the escalated ROI are blurred via an HSV mask before encoding, so human hands or faces that cross the inspection zone never leave the device as recoverable biometric data.
+
+**Hot-reload cost configuration**: `LiveConfig` re-reads `config.yaml` whenever the file's mtime changes, so operators can tune `C_FN`/`C_FP` for a shift change or a new part family without restarting the process. The escalation band updates automatically.
 
 ## Config
 

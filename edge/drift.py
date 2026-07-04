@@ -1,14 +1,16 @@
-"""Calibration drift detector (KS test on rolling confidence window).
+"""Drift detectors for calibration drift and edge-vs-cloud model disagreement.
 
-After calibration the edge model's confidence distribution should be stationary.
-Covariate shift (lighting changes, lens dust, camera vibration) causes it to drift,
-making the temperature-scaled probabilities stale and breaking the cost inequality.
+CalibrationDriftDetector (DriftDetector):
+  Watches the rolling window of edge confidence values with a KS test. Fires
+  DriftState.ALERT when the distribution shifts from the calibration-time reference,
+  signalling covariate shift (lighting, lens, vibration). Orchestrator switches to
+  conservative mode on alert.
 
-This module watches the rolling window of predicted probabilities. Every `check_every`
-frames it runs a two-sample KS test against the reference distribution captured at
-calibration time. If the statistic exceeds `ks_threshold` the detector fires an alert
-and returns DriftState.ALERT — the orchestrator switches to conservative mode (treat
-every frame as in-band) until the operator recalibrates.
+ModelDriftMonitor:
+  Watches systematic disagreement between local edge decisions and cloud diagnoses on
+  escalated frames. When the disagreement rate in a rolling window exceeds a threshold
+  it logs a warning: the edge model and VLM have drifted apart and recalibration or
+  fine-tuning is needed.
 """
 
 from __future__ import annotations
@@ -61,3 +63,47 @@ class DriftDetector:
             self._since_last_check = 0
             return self.check(recent)
         return self._state
+
+
+@dataclass(frozen=True)
+class ModelDriftConfig:
+    window: int = 100          # escalated frames to include in the disagreement window
+    disagreement_threshold: float = 0.20  # fraction above which drift is flagged
+
+
+class ModelDriftMonitor:
+    """Detects systematic edge-vs-cloud disagreement on escalated frames.
+
+    Each time a cloud diagnosis comes back, record() is called with the edge decision
+    and the cloud verdict. When the rolling disagreement rate (over the last `window`
+    paired decisions) exceeds `disagreement_threshold`, is_drifted returns True.
+
+    This surfaces VLM weight updates or edge model staleness without requiring any
+    ground-truth labels: a sustained disagreement pattern is the signal.
+    """
+
+    def __init__(self, cfg: ModelDriftConfig | None = None):
+        self._cfg = cfg or ModelDriftConfig()
+        self._window: list = []  # bool: True = disagreed
+
+    def record(self, edge_defect: bool, cloud_defect: bool) -> None:
+        self._window.append(edge_defect != cloud_defect)
+        if len(self._window) > self._cfg.window:
+            self._window.pop(0)
+
+    @property
+    def disagreement_rate(self) -> float:
+        if not self._window:
+            return 0.0
+        return sum(self._window) / len(self._window)
+
+    @property
+    def is_drifted(self) -> bool:
+        return (
+            len(self._window) >= self._cfg.window // 2
+            and self.disagreement_rate >= self._cfg.disagreement_threshold
+        )
+
+    def load_from_pairs(self, pairs: Sequence[tuple]) -> None:
+        """Seed the window from stored (edge_defect, cloud_defect) pairs (e.g. on startup)."""
+        self._window = [e != c for e, c in pairs[-self._cfg.window:]]

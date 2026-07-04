@@ -16,3 +16,7 @@ drift:
   window: 200        # recent predictions to compare against reference distribution
   check_every: 50    # run KS test every N frames
   ks_threshold: 0.15 # KS statistic above this triggers conservative escalation
+
+model_drift:
+  window: 100                  # recent escalated frames to track
+  disagreement_threshold: 0.20 # fraction of disagreements that triggers a warning

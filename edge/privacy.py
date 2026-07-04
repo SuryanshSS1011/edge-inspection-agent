@@ -68,8 +68,11 @@ class PrivacyFilter:
 
         Guarantees no full-frame bytes and no PII fields enter the payload. Raises
         PrivacyViolation if the ROI is not strictly smaller than the frame in ROI mode.
+        Skin-tone regions within the ROI are blurred before encoding to prevent accidental
+        PII egress when a human hand or face crosses into the inspection zone.
         """
         roi = self._crop(frame, bbox)
+        roi = self._anonymize_skin(roi)
         scrubbed, ctx_crossings = self._scrub_context(context or {})
 
         if self.mode == "roi":
@@ -104,6 +107,46 @@ class PrivacyFilter:
                 "ROI equals the full frame — refusing to escalate raw frame bytes. "
                 "Provide a tighter bbox (a detector should localize the part)."
             )
+
+    @staticmethod
+    def _anonymize_skin(roi: np.ndarray) -> np.ndarray:
+        """Blur skin-tone regions so hands/faces entering the inspection zone never leave
+        the device as recoverable biometric data. Uses an HSV skin-tone mask (robust to
+        lighting variation) and a box-blur replacement — pure numpy, no cv2 dependency.
+        """
+        if roi.ndim != 3 or roi.shape[2] != 3:
+            return roi
+        roi_f = roi.astype(np.float32) / 255.0
+        b, g, r = roi_f[:, :, 0], roi_f[:, :, 1], roi_f[:, :, 2]
+        cmax = np.maximum(np.maximum(r, g), b)
+        cmin = np.minimum(np.minimum(r, g), b)
+        delta = cmax - cmin
+        v = cmax
+        s = np.where(cmax > 0, np.divide(delta, cmax, where=cmax > 0, out=np.zeros_like(delta)), 0.0)
+        h = np.zeros_like(v)
+        dr = (cmax == r) & (delta > 0)
+        dg = (cmax == g) & (delta > 0)
+        db = (cmax == b) & (delta > 0)
+        h[dr] = 60.0 * (((g[dr] - b[dr]) / delta[dr]) % 6)
+        h[dg] = 60.0 * (((b[dg] - r[dg]) / delta[dg]) + 2)
+        h[db] = 60.0 * (((r[db] - g[db]) / delta[db]) + 4)
+        skin = (
+            ((h <= 25) | (h >= 335)) &
+            (s >= 0.1) & (s <= 0.9) &
+            (v >= 0.2) & (v <= 0.95)
+        )
+        if not np.any(skin):
+            return roi
+        k = max(3, min(roi.shape[0], roi.shape[1]) // 8)
+        k = k if k % 2 == 1 else k + 1
+        pad = k // 2
+        padded = np.pad(roi.astype(np.float32), ((pad, pad), (pad, pad), (0, 0)), mode="edge")
+        from numpy.lib.stride_tricks import sliding_window_view
+        windows = sliding_window_view(padded, (k, k, 3))[:, :, 0]
+        blurred = windows.reshape(*roi.shape[:2], k * k, 3).mean(axis=2).astype(roi.dtype)
+        out = roi.copy()
+        out[skin] = blurred[skin]
+        return out
 
     @staticmethod
     def _encode_png(roi: np.ndarray) -> bytes:

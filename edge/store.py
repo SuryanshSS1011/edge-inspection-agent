@@ -196,5 +196,25 @@ class Store:
         ).fetchall()
         return [r["p"] for r in reversed(rows)]
 
+    def recent_edge_cloud_agreement(self, n: int) -> list:
+        """Return the n most recent (edge_defect, cloud_defect) pairs for escalated frames
+        that have a cloud diagnosis. Used by the model drift monitor to detect systematic
+        edge-vs-cloud divergence as the VLM or edge model evolves."""
+        rows = self._conn.execute(
+            "SELECT decision, cloud_diagnosis FROM events "
+            "WHERE escalated = 1 AND cloud_diagnosis IS NOT NULL "
+            "ORDER BY ts DESC LIMIT ?",
+            (n,),
+        ).fetchall()
+        pairs = []
+        for r in reversed(rows):
+            edge_defect = r["decision"] == "REJECT"
+            try:
+                cloud_defect = bool(json.loads(r["cloud_diagnosis"]).get("defect_present", False))
+            except (json.JSONDecodeError, AttributeError):
+                continue
+            pairs.append((edge_defect, cloud_defect))
+        return pairs
+
     def close(self) -> None:
         self._conn.close()

@@ -23,14 +23,15 @@ One inequality. Three requirements.
 
 Measured on real MVTec industrial data across six categories:
 
-| Mode | Accuracy | Cost | PII egress |
-|---|---|---|---|
-| Cloud-only | 0.992 | 100% | 0 |
-| **Hybrid (ours)** | **0.988** | **57%** | **0** |
-| Local-only | 0.951 | 0% | 0 |
+| Mode | Accuracy | Cost | Edge latency p50/p99 | Cloud latency p50/mean/p99 | PII egress |
+|---|---|---|---|---|---|
+| Cloud-only | 0.992 | 100% | 0.2 ms / 0.3 ms | 3.7 s / 4.8 s / 12.4 s | 0 |
+| **Hybrid (ours)** | **0.988** | **57%** | **0.2 ms / 0.3 ms** | **3.7 s / 4.8 s / 12.4 s** (escalated band only) | **0** |
+| Local-only | 0.951 | 0% | 0.2 ms / 0.3 ms | — | 0 |
+
+Cloud latency measured live on 12 real Qwen-VL calls (n=12, 100% accuracy). p99 is a single cold-start spike; p50 and mean reflect steady-state. Edge latency covers the full frame pipeline: MobileNetV2 + classifier + routing decision.
 
 - Six-category robustness: **0.969 ± 0.015** (spread tightened as categories were added)
-- Cloud measured live: **100% accuracy**, p50 **3.7 s**, mean **4.8 s**, p99 **12.4 s** (single cold-start spike). Exactly why you escalate only the uncertain band.
 - Backbone ablation: hybrid delta **-0.024 to +0.023** across backbone swaps. The router absorbs local-model variance.
 - **148 tests** green
 
@@ -47,7 +48,7 @@ edge/    perception · router · privacy · orchestrator · outbox · actuation 
 cloud/   qwen3.7-plus reasoning server (HTTP + MCP)
 eval/    MVTec loader · metrics · harness · result scripts
 demo/    scripted demo runner · network toggle · video script
-tests/   130 unit + integration tests
+tests/   148 unit + integration tests
 ```
 
 ## Quickstart

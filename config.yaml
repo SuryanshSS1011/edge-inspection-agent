@@ -11,3 +11,8 @@ paths:
   db: ./edge.db
   model: ./models/classifier.onnx
   calibration: ./models/temperature.json
+
+drift:
+  window: 200        # recent predictions to compare against reference distribution
+  check_every: 50    # run KS test every N frames
+  ks_threshold: 0.15 # KS statistic above this triggers conservative escalation

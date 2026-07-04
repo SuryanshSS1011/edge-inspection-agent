@@ -35,6 +35,12 @@ CREATE TABLE IF NOT EXISTS outbox (
     drained     INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS confidence_history (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      REAL NOT NULL,
+    p       REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS boundary_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id    TEXT NOT NULL,
@@ -174,6 +180,21 @@ class Store:
     def all_events(self) -> list:
         rows = self._conn.execute("SELECT * FROM events ORDER BY ts").fetchall()
         return [_row_to_event(r) for r in rows]
+
+    # --- drift detection ----------------------------------------------------
+
+    def append_confidence(self, ts: float, p: float) -> None:
+        self._conn.execute(
+            "INSERT INTO confidence_history (ts, p) VALUES (?, ?)", (ts, p)
+        )
+        self._conn.commit()
+
+    def recent_confidences(self, n: int) -> list:
+        """Return the n most recent predicted probabilities, oldest first."""
+        rows = self._conn.execute(
+            "SELECT p FROM confidence_history ORDER BY id DESC LIMIT ?", (n,)
+        ).fetchall()
+        return [r["p"] for r in reversed(rows)]
 
     def close(self) -> None:
         self._conn.close()

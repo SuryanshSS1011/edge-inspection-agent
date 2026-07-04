@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 from edge.dotenv import load_dotenv
+from edge.drift import DriftConfig
 from edge.router import Costs, NetworkMode
 
 
@@ -24,6 +25,7 @@ class Config:
     costs: Costs
     default_mode: NetworkMode
     paths: Paths
+    drift: DriftConfig = DriftConfig()
 
 
 def load_config(path: str = "config.yaml") -> Config:
@@ -38,4 +40,10 @@ def load_config(path: str = "config.yaml") -> Config:
     )
     paths = Paths(**raw["paths"])
     mode = NetworkMode(raw["network"]["default_mode"])
-    return Config(costs=costs, default_mode=mode, paths=paths)
+    d = raw.get("drift", {})
+    drift = DriftConfig(
+        window=int(d.get("window", 200)),
+        check_every=int(d.get("check_every", 50)),
+        ks_threshold=float(d.get("ks_threshold", 0.15)),
+    )
+    return Config(costs=costs, default_mode=mode, paths=paths, drift=drift)

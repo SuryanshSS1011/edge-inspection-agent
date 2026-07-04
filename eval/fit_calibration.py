@@ -61,7 +61,7 @@ def main() -> None:
 
     ece_before = expected_calibration_error(raw_p, labels)
     ece_after = expected_calibration_error(cal_p, labels)
-    save(temperature, args.out)
+    save(temperature, args.out, reference_confidences=cal_p)
 
     print(f"calibration samples: {logits.size}  (disjoint from train and eval)")
     print(f"temperature:         {temperature:.3f}")

@@ -101,8 +101,12 @@ def reliability_curve(probs, labels, n_bins: int = 10):
     return np.array(conf), np.array(acc), np.array(cnt)
 
 
-def save(temperature: float, path: str = "models/temperature.json") -> None:
-    Path(path).write_text(json.dumps({"temperature": temperature}))
+def save(temperature: float, path: str = "models/temperature.json",
+         reference_confidences=None) -> None:
+    data = {"temperature": temperature}
+    if reference_confidences is not None:
+        data["reference_confidences"] = [float(p) for p in reference_confidences]
+    Path(path).write_text(json.dumps(data))
 
 
 def load(path: str = "models/temperature.json") -> float:

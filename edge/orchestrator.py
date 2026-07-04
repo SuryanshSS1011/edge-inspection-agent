@@ -14,6 +14,7 @@ from typing import Optional
 from edge.actuator import Actuator
 from edge.cloud_client import CloudClient, CloudUnreachable
 from edge.config import Config
+from edge.drift import DriftDetector, DriftState
 from edge.frame_source import FrameSource
 from edge.network import NetworkController
 from edge.outbox import Outbox
@@ -54,6 +55,7 @@ class Orchestrator:
         self.privacy = privacy
         self.outbox = outbox
         self.category = category  # non-PII context label sent with escalations
+        self._drift: DriftDetector | None = None  # initialised on first frame
 
     def run(self) -> list:
         """Process every frame from the source to completion. Returns the events logged."""
@@ -76,7 +78,14 @@ class Orchestrator:
         perception = self.perception.predict(frame)
         p = perception.p
 
+        # Log confidence and check for calibration drift. On ALERT every frame is
+        # treated as in-band (conservative escalation) until the operator recalibrates.
+        self.store.append_confidence(started, p)
+        drift_alert = self._check_drift(p)
+
         decision = decide(p, mode, costs)
+        if drift_alert and decision != Decision.ESCALATE and mode != NetworkMode.OFFLINE:
+            decision = Decision.ESCALATE  # conservative: escalate everything under drift
         escalated = False
         bytes_to_cloud = 0
         pii_bytes = 0
@@ -193,6 +202,36 @@ class Orchestrator:
             return None
         self.store.log_boundary(event_id, ts, payload.crossings)
         return payload
+
+    @property
+    def drift_state(self) -> DriftState:
+        return self._drift.state if self._drift else DriftState.OK
+
+    def _check_drift(self, p: float) -> bool:
+        """Lazy-init the drift detector from the reference distribution stored in the
+        calibration file, then record p and maybe run the KS test. Returns True on alert."""
+        if self._drift is None:
+            ref = self._load_reference_distribution()
+            if ref is None:
+                return False
+            self._drift = DriftDetector(ref, self.config.drift)
+        recent = self.store.recent_confidences(self.config.drift.window)
+        state = self._drift.record_and_maybe_check(p, recent)
+        return state == DriftState.ALERT
+
+    def _load_reference_distribution(self):
+        """Load the reference confidence distribution saved alongside the calibration.
+        Returns None if the file doesn't exist or lacks the key."""
+        import json
+        from pathlib import Path
+        cal_path = Path(self.config.paths.calibration)
+        if not cal_path.exists():
+            return None
+        try:
+            data = json.loads(cal_path.read_text())
+            return data.get("reference_confidences")
+        except Exception:
+            return None
 
     def _in_band(self, p: float) -> bool:
         band = escalation_band(self.config.costs)

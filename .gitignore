@@ -14,6 +14,7 @@ eval/fixtures/
 models/mobilenetv2.onnx
 models/splits.json
 models/*.splits.json
+.DS_Store
 # root planning/competition files
 Build Session FAQ.md
 EdgeAgent_Build_Plan.md

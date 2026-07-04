@@ -1,8 +1,8 @@
 # EdgeAgent
 
-**An edge inspection agent that knows when it needs the cloud — and keeps working when the cloud is gone.**
+**An edge inspection agent that knows when it needs the cloud, and keeps working when the cloud is gone.**
 
-![Architecture](assets/architecture.png)
+![Architecture](assets/architecture-dark.png)
 
 ## The idea
 
@@ -12,10 +12,10 @@ Most inspection systems bolt on privacy, offline support, and cloud orchestratio
 band = [T/C_FN,  1 - T/C_FP]     T = C_cloud + ε
 ```
 
-- **In-band** (uncertain) → escalate only the cropped ROI to Qwen-VL. Zero raw frames, zero PII.
-- **Out-of-band** (confident) → decide locally. No cloud call needed.
-- **Offline + in-band** → conservative local reject, queue to outbox. Line never stops.
-- **Reconnect** → outbox drains, cloud verdict back-fills the record.
+- **In-band** (uncertain): escalate only the cropped ROI to qwen3.7-plus. Zero raw frames, zero PII.
+- **Out-of-band** (confident): decide locally. No cloud call needed.
+- **Offline + in-band**: conservative local reject, queue to outbox. Line never stops.
+- **Reconnect**: outbox drains, cloud verdict back-fills the record.
 
 One inequality. Three requirements.
 
@@ -30,21 +30,21 @@ Measured on real MVTec industrial data across six categories:
 | Local-only | 0.951 | 0% | 0 |
 
 - Six-category robustness: **0.969 ± 0.015** (spread tightened as categories were added)
-- Cloud measured live: **100% accuracy**, p99 **12.4 s** — exactly why you escalate only the uncertain band
-- Backbone ablation: hybrid Δ **−0.024 to +0.023** across backbone swaps — the router absorbs local-model variance
+- Cloud measured live: **100% accuracy**, p99 **12.4 s**. Exactly why you escalate only the uncertain band.
+- Backbone ablation: hybrid delta **-0.024 to +0.023** across backbone swaps. The router absorbs local-model variance.
 - **130 tests** green
 
 ## Stack
 
 - **Edge**: Python 3.11, ONNX (MobileNetV2), temperature-scaled logistic classifier, SQLite outbox
-- **Cloud**: Qwen-VL (`qwen3.7-plus`) via DashScope, served over HTTP from a Docker container on Alibaba SAS
-- **Interface**: MCP stdio tool + HTTP (`/healthz`, `/diagnose`) — same code path
+- **Cloud**: qwen3.7-plus via DashScope, served over HTTP from a Docker container on Alibaba SAS
+- **Interface**: MCP stdio tool + HTTP (`/healthz`, `/diagnose`), same code path
 
 ## Layout
 
 ```
 edge/    perception · router · privacy · orchestrator · outbox · actuation · store
-cloud/   Qwen-VL reasoning server (HTTP + MCP)
+cloud/   qwen3.7-plus reasoning server (HTTP + MCP)
 eval/    MVTec loader · metrics · harness · result scripts
 demo/    scripted demo runner · network toggle · video script
 tests/   130 unit + integration tests
@@ -71,7 +71,7 @@ python -m eval.run_multi_category
 
 ## Config
 
-All costs live in `config.yaml`. The escalation band is **derived** from them — never hand-tuned.
+All costs live in `config.yaml`. The escalation band is **derived** from them, never hand-tuned.
 
 ```yaml
 costs:

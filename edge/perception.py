@@ -86,6 +86,7 @@ class OnnxClassifier:
         self.model_path = model_path
         self.temperature = temperature  # from calibration.py; 1.0 = uncalibrated
         self._session = None
+        self._input_dim: Optional[int] = None  # cached feature width the model expects
 
     def _ensure_session(self):
         if self._session is None:
@@ -94,10 +95,32 @@ class OnnxClassifier:
             self._session = ort.InferenceSession(
                 self.model_path, providers=["CPUExecutionProvider"]
             )
+            shape = self._session.get_inputs()[0].shape
+            # Last dim is the feature width for the LR/MLP heads; None for a 4-D CNN.
+            last = shape[-1]
+            self._input_dim = last if isinstance(last, int) else None
         return self._session
 
+    def _features_for(self, frame: np.ndarray) -> np.ndarray:
+        """Build the input the loaded model expects from a live BGR frame.
+
+        The head trained in eval determines the input width, so we dispatch on it:
+          * 23  -> hand-crafted color/edge/grid features (default classifier.onnx)
+          * 1000 -> MobileNetV2 embedding (grid_mobilenet.onnx backbone head)
+          * else (a 4-D CNN taking a raw image) -> ImageNet-normalized NCHW tensor
+        This keeps the live path in lockstep with whatever config.yaml points `model` at,
+        using the exact same feature code as training."""
+        self._ensure_session()
+        if self._input_dim == 23:
+            from eval.features import features_from_bgr
+            return features_from_bgr(frame).reshape(1, -1)
+        if self._input_dim == 1000:
+            from eval.mobilenet_features import extract_from_bgr
+            return extract_from_bgr(frame).reshape(1, -1)
+        return preprocess(frame)  # raw-image CNN
+
     def predict(self, frame: np.ndarray) -> Perception:
-        return self.predict_from_features(preprocess(frame))
+        return self.predict_from_features(self._features_for(frame))
 
     def predict_from_features(self, tensor: np.ndarray) -> Perception:
         """Run the ONNX model on a ready input tensor and calibrate. Used directly when the

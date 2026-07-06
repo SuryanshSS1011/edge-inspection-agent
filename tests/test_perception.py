@@ -68,3 +68,48 @@ def test_predict_from_logit_temperature_softens():
     p_hot = hot.predict_from_logit(3.0).p
     p_cold = cold.predict_from_logit(3.0).p
     assert 0.5 < p_hot < p_cold
+
+
+# --- live feature dispatch: predict() must build the input the model declares ---
+
+class _FakeInput:
+    def __init__(self, shape):
+        self.name = "input"
+        self.shape = shape
+
+
+class _FakeSession:
+    """Records the tensor it was run with so we can assert the right feature width."""
+    def __init__(self, shape):
+        self._shape = shape
+        self.last_tensor = None
+
+    def get_inputs(self):
+        return [_FakeInput(self._shape)]
+
+    def run(self, _outputs, feed):
+        self.last_tensor = next(iter(feed.values()))
+        return [np.array([0.0])]  # logit 0 -> p=0.5
+
+
+def _classifier_with_session(shape):
+    clf = OnnxClassifier("unused.onnx", temperature=1.0)
+    clf._session = _FakeSession(shape)
+    clf._input_dim = shape[-1] if isinstance(shape[-1], int) else None
+    return clf
+
+
+def test_predict_dispatches_to_handcrafted_features():
+    # A [None, 23] head must receive the 23-d hand-crafted feature vector.
+    clf = _classifier_with_session([None, 23])
+    frame = np.zeros((40, 40, 3), np.uint8)
+    clf.predict(frame)
+    assert clf._session.last_tensor.shape == (1, 23)
+
+
+def test_predict_dispatches_to_raw_image_for_cnn():
+    # A 4-D image model ([N,3,224,224], last dim not an int width) gets the NCHW tensor.
+    clf = _classifier_with_session(["batch", 3, 224, 224])
+    frame = np.zeros((40, 40, 3), np.uint8)
+    clf.predict(frame)
+    assert clf._session.last_tensor.shape == (1, 3, 224, 224)

@@ -1,6 +1,6 @@
 """Lightweight image features for the modest local classifier (PIL + numpy only).
 
-These are deliberately simple — the router needs a *calibrated, uncertain-near-the-
+These are deliberately simple. The router needs a *calibrated, uncertain-near-the-
 boundary* local model, not a strong one (the cloud catches the hard cases). The features
 capture the cues that separate a clean bottle from broken-glass / contamination defects:
 color statistics, edge density, and grid-wise intensity variance (spatial irregularity).
@@ -46,6 +46,18 @@ def features_from_array(rgb: np.ndarray, gray: np.ndarray) -> np.ndarray:
     cell_var = np.array(cell_var)                      # GRID*GRID
 
     return np.concatenate([means, stds, edge_density, cell_var]).astype(np.float32)
+
+
+def features_from_bgr(frame: np.ndarray) -> np.ndarray:
+    """Same 23-d feature vector as `extract`, but from an in-memory BGR uint8 frame on the
+    live camera path instead of a file. Resizes to INPUT_SIZE and reuses the array core so
+    train-time and live features stay identical."""
+    import cv2  # lazy
+
+    resized = cv2.resize(frame, INPUT_SIZE, interpolation=cv2.INTER_AREA)
+    rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    gray = rgb.mean(axis=2)
+    return features_from_array(rgb, gray)
 
 
 def extract(path: str) -> np.ndarray:

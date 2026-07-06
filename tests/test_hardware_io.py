@@ -9,7 +9,13 @@ import numpy as np
 import pytest
 
 from edge.actuator import UsbRelayActuator
-from edge.frame_source import FileSource, WebcamSource
+from edge.frame_source import (
+    CameraUnavailable,
+    FallbackSource,
+    FileSource,
+    MockSource,
+    WebcamSource,
+)
 from edge.router import Action
 
 
@@ -96,16 +102,28 @@ class _FakeCap:
         pass
 
 
-def _fake_cv2(frames):
+def _fake_cv2(frames, on_open=None):
+    """A fake cv2 module. VideoCapture accepts the (target[, backend]) signature the
+    source now uses for URL streams, and records each target opened in `.opened`."""
     mod = types.ModuleType("cv2")
-    mod.VideoCapture = lambda idx: _FakeCap(frames)
+    mod.CAP_FFMPEG = 1900
+    mod.opened = []
+
+    def _video_capture(target, *args):
+        mod.opened.append(target)
+        cap = _FakeCap(frames)
+        if on_open:
+            on_open(target, cap)
+        return cap
+
+    mod.VideoCapture = _video_capture
     return mod
 
 
 def test_webcam_yields_frames(monkeypatch):
     frames = [np.zeros((4, 4, 3), np.uint8), np.ones((4, 4, 3), np.uint8)]
     monkeypatch.setitem(sys.modules, "cv2", _fake_cv2(frames))
-    src = WebcamSource(interval_s=0, max_frames=5)
+    src = WebcamSource(interval_s=0, max_frames=5, warmup_frames=0)
     got = list(src.frames())
     assert len(got) == 2  # camera ran dry after 2
 
@@ -113,16 +131,64 @@ def test_webcam_yields_frames(monkeypatch):
 def test_webcam_respects_max_frames(monkeypatch):
     frames = [np.zeros((4, 4, 3), np.uint8)] * 10
     monkeypatch.setitem(sys.modules, "cv2", _fake_cv2(frames))
-    src = WebcamSource(interval_s=0, max_frames=3)
+    src = WebcamSource(interval_s=0, max_frames=3, warmup_frames=0)
     assert len(list(src.frames())) == 3
 
 
+def test_webcam_warmup_discards_leading_frames(monkeypatch):
+    # 5 frames total; warm-up drains 2, so only 3 are yielded.
+    frames = [np.full((2, 2, 3), i, np.uint8) for i in range(5)]
+    monkeypatch.setitem(sys.modules, "cv2", _fake_cv2(frames))
+    src = WebcamSource(interval_s=0, warmup_frames=2)
+    got = list(src.frames())
+    assert len(got) == 3
+    assert got[0][0, 0, 0] == 2  # first yielded frame is the 3rd captured
+
+
+def test_webcam_url_uses_ffmpeg_backend(monkeypatch):
+    frames = [np.zeros((2, 2, 3), np.uint8)]
+    fake = _fake_cv2(frames)
+    monkeypatch.setitem(sys.modules, "cv2", fake)
+    src = WebcamSource("http://phone.local:8080/video", interval_s=0, warmup_frames=0)
+    list(src.frames())
+    assert fake.opened == ["http://phone.local:8080/video"]
+
+
+def test_webcam_auto_scans_indices(monkeypatch):
+    # index 0 fails to open; auto should try 1 next and succeed.
+    frames = [np.zeros((2, 2, 3), np.uint8)]
+    fake = _fake_cv2(frames, on_open=lambda t, cap: setattr(
+        cap, "isOpened", (lambda: t != 0)))
+    monkeypatch.setitem(sys.modules, "cv2", fake)
+    src = WebcamSource("auto", interval_s=0, warmup_frames=0, retry_delay_s=0)
+    list(src.frames())
+    assert fake.opened[:2] == [0, 1]  # tried 0, then 1
+
+
 def test_webcam_raises_if_camera_unavailable(monkeypatch):
-    mod = types.ModuleType("cv2")
-    class _Closed(_FakeCap):
-        def isOpened(self):
-            return False
-    mod.VideoCapture = lambda idx: _Closed([])
-    monkeypatch.setitem(sys.modules, "cv2", mod)
-    with pytest.raises(RuntimeError):
-        list(WebcamSource().frames())
+    fake = _fake_cv2([], on_open=lambda t, cap: setattr(cap, "isOpened", lambda: False))
+    monkeypatch.setitem(sys.modules, "cv2", fake)
+    with pytest.raises(CameraUnavailable):
+        list(WebcamSource(open_retries=2, retry_delay_s=0).frames())
+
+
+def test_fallback_uses_fallback_when_camera_unavailable(monkeypatch):
+    fake = _fake_cv2([], on_open=lambda t, cap: setattr(cap, "isOpened", lambda: False))
+    monkeypatch.setitem(sys.modules, "cv2", fake)
+    fb_frames = [np.zeros((2, 2, 3), np.uint8), np.ones((2, 2, 3), np.uint8)]
+    src = FallbackSource(
+        WebcamSource(open_retries=1, retry_delay_s=0), MockSource(fb_frames)
+    )
+    got = list(src.frames())
+    assert len(got) == 2  # camera died at open -> fell back to the 2 mock frames
+
+
+def test_fallback_prefers_primary_when_camera_works(monkeypatch):
+    cam_frames = [np.full((2, 2, 3), 7, np.uint8)]
+    monkeypatch.setitem(sys.modules, "cv2", _fake_cv2(cam_frames))
+    src = FallbackSource(
+        WebcamSource(interval_s=0, warmup_frames=0), MockSource([np.zeros((2, 2, 3), np.uint8)])
+    )
+    got = list(src.frames())
+    assert len(got) == 1
+    assert got[0][0, 0, 0] == 7  # primary frame, not the fallback

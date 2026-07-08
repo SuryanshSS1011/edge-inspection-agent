@@ -5,7 +5,7 @@ usually over/under-confident, so we fit a single scalar temperature T on a held-
 validation split that minimizes binary cross-entropy of sigmoid(logit / T) vs labels,
 then divide every inference logit by T.
 
-Pure numpy/scipy — no model/ONNX dependency, so this is fully testable offline.
+Pure numpy/scipy with no model/ONNX dependency, so this is fully testable offline.
 Persist T to models/temperature.json.
 """
 
@@ -68,7 +68,7 @@ def _bin_mask(probs: np.ndarray, lo: float, hi: float, first: bool) -> np.ndarra
 def expected_calibration_error(probs, labels, n_bins: int = 10) -> float:
     """ECE: weighted gap between confidence and accuracy across probability bins.
 
-    The headline number for the M2 exit check — lower is better-calibrated.
+    The headline number for the M2 exit check, where lower is better-calibrated.
     """
     probs = np.asarray(probs, dtype=float)
     labels = np.asarray(labels, dtype=float)
@@ -110,4 +110,9 @@ def save(temperature: float, path: str = "models/temperature.json",
 
 
 def load(path: str = "models/temperature.json") -> float:
-    return float(json.loads(Path(path).read_text())["temperature"])
+    # A blank/unset path (or a dir) means "no calibration configured". Surface that as a
+    # FileNotFoundError so callers fall back to the uncalibrated default (temperature=1.0).
+    p = Path((path or "").strip())
+    if not path or not p.is_file():
+        raise FileNotFoundError(f"calibration file not found: {path!r}")
+    return float(json.loads(p.read_text())["temperature"])

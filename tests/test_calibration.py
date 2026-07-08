@@ -1,7 +1,7 @@
-"""Tests for temperature-scaling calibration. Pure numpy/scipy — no model needed.
+"""Tests for temperature-scaling calibration. Pure numpy/scipy, no model needed.
 
-The key property: fitting temperature on a miscalibrated (over-confident) logit set
-should reduce expected calibration error.
+The key property is that fitting temperature on a miscalibrated (over-confident) logit
+set should reduce expected calibration error.
 """
 
 import numpy as np
@@ -11,7 +11,9 @@ from edge.calibration import (
     apply_temperature,
     expected_calibration_error,
     fit_temperature,
+    load,
     reliability_curve,
+    save,
 )
 
 
@@ -87,3 +89,19 @@ def test_reliability_curve_shapes():
     conf, acc, cnt = reliability_curve(probs, labels, n_bins=10)
     assert len(conf) == len(acc) == len(cnt) == 10
     assert cnt.sum() == 100
+
+
+# --- load: a blank/missing path is "uncalibrated", not a crash ----------------
+
+def test_load_roundtrip(tmp_path):
+    path = str(tmp_path / "temperature.json")
+    save(2.5, path)
+    assert load(path) == pytest.approx(2.5)
+
+
+@pytest.mark.parametrize("path", ["", "   ", "does/not/exist.json"])
+def test_load_blank_or_missing_raises_filenotfound(path):
+    # A blank path resolves to '.' (a directory) and must surface as FileNotFoundError so
+    # callers fall back to temperature=1.0 rather than hitting IsADirectoryError.
+    with pytest.raises(FileNotFoundError):
+        load(path)

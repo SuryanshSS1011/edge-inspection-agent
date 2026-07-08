@@ -2,8 +2,8 @@
 
 Wires every component behind its interface. The full happy path lands in M4
 (full mode); M5 inserts the privacy filter on the escalation path; M6 adds the
-degraded/offline branches and the outbox. This module stays thin — all policy
-lives in router.py.
+degraded/offline branches and the outbox. This module stays thin because all
+policy lives in router.py.
 """
 
 import hashlib
@@ -69,7 +69,7 @@ class Orchestrator:
     def process_frame(self, frame) -> InspectionEvent:
         """Run one item through perceive -> route -> act -> log and return its event.
 
-        Actuation never depends on the cloud: if an escalation can't reach the cloud,
+        Actuation never depends on the cloud. If an escalation can't reach the cloud,
         we fall back to the cost-minimizing local action so the line never stalls (§3.6).
         """
         started = time.time()
@@ -99,15 +99,15 @@ class Orchestrator:
                 event_id, frame, p, started
             )
         elif decision == Decision.DEFER_AND_ACT:
-            # Degraded link: queue the escalation, act on the local decision now so the
-            # line never stalls; the cloud diagnosis is reconciled on reconnect.
+            # On a degraded link we queue the escalation and act on the local decision
+            # now so the line never stalls; the cloud diagnosis is reconciled on reconnect.
             outbox_state = self._defer(event_id, frame, started)
             action = local_action(p, costs)
         else:
-            # LOCAL_ACT: offline or outside the band. Act locally now — under the
+            # LOCAL_ACT: offline or outside the band. We act locally now, and under the
             # asymmetry this conservatively rejects when in doubt (graceful degradation).
             action = local_action(p, costs)
-            # Offline but in-band: this was a would-be escalation. Queue it so the cloud
+            # Offline but in-band means this was a would-be escalation. Queue it so the cloud
             # can confirm the diagnosis once the link returns (build plan §3.5).
             if mode == NetworkMode.OFFLINE and self._in_band(p):
                 outbox_state = self._defer(event_id, frame, started)
@@ -157,7 +157,7 @@ class Orchestrator:
                 context=payload.context,
             )
         except CloudUnreachable:
-            # Cloud gone mid-call: fall back to the local action, log no diagnosis.
+            # Cloud gone mid-call, so fall back to the local action and log no diagnosis.
             return local_action(p, costs), True, bytes_to_cloud, pii_bytes, None
 
         cloud_defect = bool(diagnosis.get("defect_present"))
@@ -167,7 +167,7 @@ class Orchestrator:
         if self._model_drift.is_drifted:
             import logging
             logging.getLogger(__name__).warning(
-                "edge-vs-cloud disagreement rate %.0f%% over last %d frames — "
+                "edge-vs-cloud disagreement rate %.0f%% over last %d frames; "
                 "consider recalibrating the edge model",
                 self._model_drift.disagreement_rate * 100,
                 self.config.model_drift.window,
@@ -190,8 +190,8 @@ class Orchestrator:
         return "queued"
 
     def reconcile(self) -> int:
-        """Drain the outbox on reconnect: send queued payloads to the cloud and write the
-        late diagnoses back onto their events. Returns the number reconciled."""
+        """Drain the outbox on reconnect by sending queued payloads to the cloud and writing
+        the late diagnoses back onto their events. Returns the number reconciled."""
         if self.outbox is None or self.cloud is None:
             return 0
         return self.outbox.drain(
@@ -244,21 +244,24 @@ class Orchestrator:
         import json
         from pathlib import Path
         _log = logging.getLogger(__name__)
-        cal_path = Path(self.config.paths.calibration)
-        if not cal_path.exists():
+        cal = (self.config.paths.calibration or "").strip()
+        if not cal:
+            return None  # no calibration configured (e.g. the scripted demo), so quietly skip
+        cal_path = Path(cal)
+        if not cal_path.is_file():
             return None
         try:
             data = json.loads(cal_path.read_text())
             ref = data.get("reference_confidences")
             if ref is None:
                 _log.warning(
-                    "calibration file %s has no reference_confidences — "
-                    "drift detection disabled; re-run eval.fit_calibration", cal_path
+                    "calibration file %s has no reference_confidences, so "
+                    "drift detection is disabled; re-run eval.fit_calibration", cal_path
                 )
             return ref
         except Exception as exc:
             _log.warning(
-                "failed to load reference distribution from %s: %s — "
+                "failed to load reference distribution from %s: %s; "
                 "drift detection disabled", cal_path, exc
             )
             return None

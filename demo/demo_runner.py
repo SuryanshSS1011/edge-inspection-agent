@@ -1,15 +1,16 @@
 """Scripted demo (build plan §8). Narrates each beat to the console so the video shows
-clear on-screen state:
+clear on-screen state through these five beats:
 
   1. good part        -> confident local PASS (no cloud)
   2. ambiguous part   -> escalate -> cloud diagnosis -> relay REJECTS
-  3. CUT THE NETWORK  -> offline: conservative local REJECT, escalation queued
+  3. CUT THE NETWORK  -> offline, conservative local REJECT, escalation queued
   4. RECONNECT        -> outbox drains, the late cloud diagnosis is back-filled
   5. summary          -> the log proves zero PII egress and the deferred-then-reconciled item
 
-Self-contained and deterministic: a modeled cloud + scripted local probabilities, a mock
-relay, and an in-memory DB. Record this now; swap in the real webcam / ONNX model /
-deployed cloud (build_live in edge.app) for the final cut — the loop code is identical.
+The demo is self-contained and deterministic, using a modeled cloud, scripted local
+probabilities, a mock relay, and an in-memory DB. Record this now. The `camera`/`data`
+modes in edge.app run the same orchestrator loop against the real webcam / ONNX model /
+deployed cloud.
 """
 
 import tempfile
@@ -33,7 +34,7 @@ from edge.store import Store
 @dataclass
 class Beat:
     p: float       # local calibrated defect probability for this staged part
-    label: int     # ground truth (1 = defect) — drives the modeled cloud verdict
+    label: int     # ground truth (1 = defect) that drives the modeled cloud verdict
     caption: str
 
 
@@ -104,7 +105,7 @@ def run_demo(config_path: str = "config.yaml") -> dict:
         )
 
         _say("=" * 64)
-        _say("EdgeAgent — live inspection demo")
+        _say("Tollgate - live inspection demo")
         _say("=" * 64)
 
         # Beat 1: good part -> confident local PASS.
@@ -113,7 +114,7 @@ def run_demo(config_path: str = "config.yaml") -> dict:
         _say(f"    p={e1.p:.3f}  -> {e1.decision}  (local, no cloud call)  relay: {e1.action_fired}")
 
         # Beat 2: ambiguous part -> escalate -> cloud diagnosis -> REJECT.
-        _say("\n[2] An ambiguous part enters — the router escalates to the cloud...")
+        _say("\n[2] An ambiguous part enters and the router escalates to the cloud...")
         e2 = orch.process_frame(next_frame(orch))
         diag = e2.cloud_diagnosis or {}
         _say(f"    p={e2.p:.3f}  -> ESCALATE  ({e2.bytes_to_cloud} bytes crossed, PII={e2.pii_bytes})")
@@ -121,14 +122,14 @@ def run_demo(config_path: str = "config.yaml") -> dict:
              f"cause='{diag.get('root_cause')}'")
         _say(f"    -> {e2.decision}  relay: {e2.action_fired}")
 
-        # Beat 3: CUT THE NETWORK — the killer beat.
+        # Beat 3: CUT THE NETWORK, the killer beat.
         _say("\n[3] *** NETWORK CUT *** the cloud is now unreachable...")
         set_mode(orch.network, "offline")
         e3 = orch.process_frame(next_frame(orch))
         _say(f"    p={e3.p:.3f}  -> {e3.decision}  (conservative local policy: reject when unsure)")
         _say(f"    escalation deferred to outbox: {orch.outbox.pending_count()} queued; line never stalled")
 
-        # Beat 4: RECONNECT — drain + reconcile.
+        # Beat 4: RECONNECT, then drain + reconcile.
         _say("\n[4] *** NETWORK RESTORED *** draining the outbox...")
         set_mode(orch.network, "full")
         reconciled = orch.reconcile()
@@ -137,8 +138,8 @@ def run_demo(config_path: str = "config.yaml") -> dict:
         _say(f"    reconciled {reconciled} deferred item(s); diagnosis back-filled: "
              f"defect={rdiag.get('defect_present')} type={rdiag.get('defect_type')}")
 
-        # Beat 5: MCP tool interface — same diagnosis_defect, called as an agent tool.
-        _say("\n[5] MCP tool interface — calling diagnose_defect as an agent tool...")
+        # Beat 5: MCP tool interface exposing the same diagnosis_defect as an agent tool.
+        _say("\n[5] MCP tool interface, calling diagnose_defect as an agent tool...")
         import base64
         import cloud.mcp_server as mcp_srv
         # Patch the Qwen call so the MCP beat runs without a real API key in the demo.
@@ -165,7 +166,7 @@ def run_demo(config_path: str = "config.yaml") -> dict:
         _say(f"    tool: diagnose_defect(roi_png_b64=<54 bytes>, context={{category: bottle}})")
         _say(f"    -> defect={mcp_result['defect_present']} type={mcp_result['defect_type']} "
              f"confidence={mcp_result['confidence']} cause='{mcp_result['root_cause']}'")
-        _say("    (same code path as HTTP /diagnose — MCP and REST share one implementation)")
+        _say("    (same code path as HTTP /diagnose, so MCP and REST share one implementation)")
 
         # Beat 6: summary from the log.
         _say("\n[6] Audit summary (from the local log):")

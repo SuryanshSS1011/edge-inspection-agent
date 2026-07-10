@@ -1,18 +1,18 @@
-# EdgeAgent
+# Tollgate
 
-**An edge inspection agent that knows when it needs the cloud, and keeps working when the cloud is gone.**
+**An edge inspection agent that decides at the gate. It passes a frame locally when confident, pays the cloud toll only when it's worth it, and keeps working when the cloud is gone.**
 
 ![Architecture](assets/architecture-dark.png)
 
 ## The idea
 
-Most inspection systems bolt on privacy, offline support, and cloud orchestration as separate features. EdgeAgent derives all three from one decision: **route frames to the cloud based on cost, not confidence**.
+Most inspection systems bolt on privacy, offline support, and cloud orchestration as separate features. Tollgate derives all three from one decision, which is to **route frames to the cloud based on cost, not confidence**. A confident part passes the gate for free (decided locally); an uncertain one pays the toll (escalates to the cloud).
 
 ```
 band = [T/C_FN,  1 - T/C_FP]     T = C_cloud + ε
 ```
 
-- **In-band** (uncertain): escalate only the cropped ROI to qwen3.7-plus. Zero raw frames, zero PII.
+- **In-band** (uncertain): escalate only the cropped ROI to qwen3-vl-plus. Zero raw frames, zero PII.
 - **Out-of-band** (confident): decide locally. No cloud call needed.
 - **Offline + in-band**: conservative local reject, queue to outbox. Line never stops.
 - **Reconnect**: outbox drains concurrently, cloud verdict back-fills the record.
@@ -27,35 +27,62 @@ Measured on real MVTec industrial data across six categories:
 |---|---|---|---|---|---|
 | Cloud-only | 0.992 | 100% | 0.2 ms / 0.3 ms | 3.7 s / 4.8 s / 12.4 s | 0 |
 | **Hybrid (ours)** | **0.988** | **57%** | **0.2 ms / 0.3 ms** | **3.7 s / 4.8 s / 12.4 s** | **0** |
-| Local-only | 0.951 | 0% | 0.2 ms / 0.3 ms | — | 0 |
+| Local-only | 0.951 | 0% | 0.2 ms / 0.3 ms | n/a | 0 |
 
 Cloud latency measured live on 12 real Qwen-VL calls (100% accuracy). p99 is a single cold-start spike; p50 and mean reflect steady-state. Edge latency covers the full frame pipeline: MobileNetV2 + classifier + routing decision. Hybrid cloud calls cover the escalated band only.
 
 - Six-category robustness: **0.969 ± 0.015** (spread tightened as categories were added)
 - Backbone ablation: hybrid delta **-0.024 to +0.023** across backbone swaps. The router absorbs local-model variance.
-- **151 tests** green
+- **168 tests** green
 
 ## Stack
 
 - **Edge**: Python 3.11, ONNX (MobileNetV2), temperature-scaled logistic classifier, SQLite outbox
-- **Cloud**: qwen3.7-plus via DashScope, served over HTTP from a Docker container on Alibaba SAS
+- **Cloud**: qwen3-vl-plus via DashScope, served over HTTP from a Docker container on Alibaba SAS
 - **Interface**: MCP stdio tool + HTTP (`/healthz`, `/diagnose`), same code path
 
 ```
 edge/    perception · router · privacy · orchestrator · outbox · actuation · store · drift
-cloud/   qwen3.7-plus reasoning server (HTTP + MCP)
+cloud/   qwen3-vl-plus reasoning server (HTTP + MCP)
 eval/    MVTec loader · metrics · harness · result scripts
 demo/    scripted demo runner · network toggle · video script
-tests/   151 unit + integration tests
+tests/   168 unit + integration tests
 ```
 
 ## Quickstart
 
 ```bash
+python3.11 -m venv .venv && source .venv/bin/activate   # 3.11 recommended
 pip install -r requirements.txt
-pytest tests/ -q
-python -m edge.app live --config config.yaml
+pytest tests/ -q                          # 168 tests
 ```
+
+Three ways to run it. `camera` and `data` run the **same real pipeline** (perception →
+router → privacy → cloud → relay → log) and differ only in where frames come from; `demo`
+is a separate, deterministic scripted story for the video/presentation.
+
+```bash
+# camera runs a real device or phone. It falls back to replaying data/<category>/ if no camera opens,
+# so a live run never dies on a missing device:
+python -m edge.app camera                                    # laptop built-in cam
+python -m edge.app camera --camera auto                      # first cam that opens
+python -m edge.app camera --camera http://<phone-ip>:8080/video   # phone over wifi
+
+# data replays a folder of images through the real pipeline (no camera). --limit bounds it:
+python -m edge.app data --category bottle --limit 20
+
+# demo runs a scripted 6-beat walkthrough; no camera, no cloud key needed:
+python -m edge.app demo
+```
+
+Both `camera` and `data` print a per-frame line (`p`, decision, escalated?, bytes, PII,
+network mode) and a final audit summary.
+
+**Using a phone as the camera:** install an IP-webcam app (e.g. *IP Webcam* on Android)
+or expose any MJPEG/RTSP stream, put the phone on the same wifi, and pass its stream URL to
+`--camera`. On iPhone + Mac, Continuity Camera also shows up as a plain capture index
+(`--camera auto` or `--camera 1`). Point the edge at the deployed reasoning server with
+`--cloud-url http://<server-ip>:8080` (or set `EDGE_CLOUD_URL` in `.env`).
 
 To reproduce the results, download any [MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad) category to `data/<category>/`, then:
 

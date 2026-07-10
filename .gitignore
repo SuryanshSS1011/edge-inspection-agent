@@ -1,22 +1,30 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
 edge.db
 models/*.onnx
 models/temperature.json
 .env
+env
 *.egg-info/
 data/
-docs/
 demo/SCRIPT.md
+# Licensed datasets (MVTec AD / AD 2 / 3D-AD) — never commit, downloaded per-license.
+*.tar.xz
+*.tar
+mvtec_anomaly_detection*
+mvtec_ad_2*
+mvtec_3d*
+datasets/
 eval/results.json
 eval/fixtures/
 models/mobilenetv2.onnx
 models/splits.json
 models/*.splits.json
 .DS_Store
-# root planning/competition files
-Build Session FAQ.md
-EdgeAgent_Build_Plan.md
-EdgeAgent_Implementation_Plan.md
-"QwenCloud AI Hackathon.pdf"
+
+# Internal / not for public display (build plans, deployment guides, dev instructions).
+# docs/ holds the build+implementation plans, hackathon PDF, and SAS deployment guide.
+docs/
+CLAUDE.md

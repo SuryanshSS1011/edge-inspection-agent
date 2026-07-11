@@ -4,10 +4,10 @@ Prompts Qwen-VL to return a strict schema and validates it server-side so the ed
 always receives well-formed output.
 
 Transport: the Qwen Cloud API (DashScope) exposes an OpenAI-compatible endpoint, so
-this calls it over plain HTTP (no SDK dependency — keeps the cloud function small).
+this calls it over plain HTTP (no SDK dependency, keeping the cloud function small).
 Set these env vars in the deployment:
     DASHSCOPE_API_KEY   - the Qwen Cloud API key (from the hackathon voucher)
-    QWEN_MODEL          - vision model id, defaults to "qwen-vl-plus"
+    QWEN_MODEL          - vision model id, defaults to "qwen3.7-plus"
     QWEN_BASE_URL       - defaults to the international DashScope compatible endpoint
 """
 
@@ -43,19 +43,31 @@ SYSTEM_PROMPT = (
     "You are an industrial visual-inspection reasoner examining a region of a "
     "manufacturing part. MOST parts are defect-free (a normal production line runs high "
     "yield), so default to defect_present=false unless you can point to a SPECIFIC, "
-    "clearly visible defect — a crack, chip, contamination, scratch, or deformation. A "
-    "clean surface, normal texture, lighting variation, reflections, or background are "
-    "NOT defects. Do not infer a defect merely because you were asked to inspect. State "
-    "the concrete visual evidence in root_cause; if you cannot name a specific visible "
-    "flaw, return defect_present=false with defect_type \"none\". "
+    "clearly visible problem. Consider TWO kinds of defect:\n"
+    "1. STRUCTURAL: a crack, chip, contamination, scratch, dent, or deformation on the "
+    "part surface.\n"
+    "2. LOGICAL: the part violates a constraint even though every surface looks fine, for "
+    "example the WRONG NUMBER of components, a component in the WRONG POSITION or "
+    "ORIENTATION, a MISSING required component, or an EXTRA object that should not be "
+    "present. Reason explicitly about count, arrangement, and presence, not just texture.\n"
+    "A clean surface, normal texture, lighting variation, reflections, or background are "
+    "NOT defects. Do not infer a defect merely because you were asked to inspect. State the "
+    "concrete visual evidence in root_cause (for a logical defect, say what count or "
+    "arrangement is wrong); if you cannot name a specific problem, return "
+    "defect_present=false with defect_type \"none\". "
     "Return ONLY a JSON object with exactly these keys: defect_present (boolean), "
-    "defect_type (string, \"none\" if no defect), confidence (number 0-1), "
+    "defect_type (string, \"none\" if no defect; use \"logical\" prefix for constraint "
+    "violations e.g. \"logical:wrong_count\"), confidence (number 0-1), "
     "root_cause (string), recommended_action (string). "
-    "No markdown, no prose, no code fences — JSON object only."
+    "No markdown, no prose, and no code fences. Return the JSON object only."
 )
 
 DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-DEFAULT_MODEL = "qwen3.7-plus"
+# Qwen3-VL is the strongest Qwen vision-language series (deeper visual perception + spatial
+# reasoning), which matters most for logical anomalies (counting / arrangement / missing
+# parts). QWEN_MODEL overrides this at call time; run `python -m eval.probe_qwen_models` to
+# confirm which ids resolve on your voucher's endpoint before relying on one.
+DEFAULT_MODEL = "qwen3-vl-plus"
 
 
 class CloudConfigError(RuntimeError):
@@ -76,7 +88,7 @@ def _build_messages(roi_png: Optional[bytes], embedding: Optional[list], context
             "image_url": {"url": f"data:image/png;base64,{b64}"},
         })
     elif embedding is not None:
-        # No raw image available (privacy mode = embedding): pass the abstracted vector.
+        # No raw image available in privacy mode, so pass the abstracted vector.
         user_content.append({
             "type": "text",
             "text": f"Abstracted feature embedding of the ROI: {embedding}",

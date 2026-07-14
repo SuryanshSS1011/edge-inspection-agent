@@ -9,6 +9,9 @@ FC custom runtime invokes a long-running HTTP server (see bootstrap). This expos
 The edge `cloud_client` calls POST /diagnose. Keeping HTTP here (rather than MCP stdio)
 matches FC's request model; mcp_server.py remains the MCP-native interface.
 
+CORS is enabled so the project site can call /diagnose from a browser. Restrict the allowed
+origin in production by setting CORS_ALLOW_ORIGIN (defaults to "*").
+
 Reads DASHSCOPE_API_KEY / QWEN_MODEL / QWEN_BASE_URL from the FC environment.
 """
 
@@ -19,15 +22,33 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # FC custom runtime sets PYTHONPATH to the code root; import the package tool.
 from cloud.mcp_server import diagnose_defect
 
+# Which browser origins may call this server. "*" allows any (fine for a public demo);
+# set to your Pages origin (e.g. https://user.github.io) to lock it down.
+CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "*")
+
 
 class Handler(BaseHTTPRequestHandler):
+    def _cors_headers(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "86400")
+
     def _send(self, code: int, payload: dict) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self._cors_headers()
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        # CORS preflight: the browser sends this before a cross-origin POST.
+        self.send_response(204)
+        self._cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self):
         if self.path.rstrip("/") == "/healthz":

@@ -4,7 +4,7 @@ Design choices (see the calibration rationale in docs):
   - A LogisticRegression on lightweight features (eval/features.py), NOT a CNN. The router
     needs a calibrated model that is genuinely uncertain near the boundary so it has real
     escalation work to do; local accuracy is not the target.
-  - THREE disjoint splits — train / calibration / eval — each with both classes. ECE must
+  - THREE disjoint splits, train / calibration / eval, each with both classes. ECE must
     be measured on data the temperature was NOT fit on, or it is circular.
   - Exports the raw decision logit (not the probability) so edge.perception's temperature
     scaling operates on logits, exactly as with any other ONNX model.
@@ -32,15 +32,23 @@ def _backbone(name):
 
     handcrafted: lightweight color/edge/variance features (eval/features.py).
     mobilenet:   frozen MobileNetV2 ONNX embeddings (eval/mobilenet_features.py).
-    Both feed the SAME LogisticRegression + temperature head; the router, privacy filter,
-    and outbox are unchanged — that's the point of the drop-in interface.
+    dinov2:      frozen DINOv2 ViT embeddings, the SOTA anomaly-detection backbone
+                 (eval/dinov2_features.py).
+    All feed the SAME LogisticRegression + temperature head; the router, privacy filter,
+    and outbox are unchanged. That's the point of the drop-in interface.
     """
     if name == "handcrafted":
         return handcrafted.extract_many, handcrafted.FEATURE_DIM
     if name == "mobilenet":
         from eval import mobilenet_features as mb
         return mb.extract_many, mb.FEATURE_DIM
-    raise ValueError(f"unknown backbone {name!r} (use 'handcrafted' or 'mobilenet')")
+    if name == "dinov2":
+        from eval import dinov2_features as dv
+        # FEATURE_DIM is the variant default; the real dim is confirmed from the ONNX at
+        # extract time. export_onnx uses this only to name the input tensor width, and the
+        # exporter writes a model whose input matches the features produced, so they agree.
+        return dv.extract_many, dv.FEATURE_DIM
+    raise ValueError(f"unknown backbone {name!r} (use handcrafted | mobilenet | dinov2)")
 
 
 def _split_paths(data: str, category: str, seed: int = 0):
@@ -105,12 +113,15 @@ def train_and_export(data, category, model_out, splits_out, seed=0, backbone="ha
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
 
-    extract_many, feature_dim = _backbone(backbone)
+    extract_many, _declared_dim = _backbone(backbone)
     train, calib, ev = _split_paths(data, category, seed)
     Xtr, ytr = _xy(train, extract_many)
+    # Trust the actual extracted width over the backbone's declared dim, so a DINOv2 variant
+    # (384/768/1024) or any embedding size exports a correctly-shaped ONNX input.
+    feature_dim = Xtr.shape[1]
 
     scaler = StandardScaler().fit(Xtr)
-    # Deliberately modest: light regularization, no heroics — we want calibratable
+    # Deliberately modest: light regularization, no heroics. We want calibratable
     # uncertainty near the boundary, not a saturated classifier.
     clf = LogisticRegression(C=0.5, max_iter=1000, class_weight="balanced")
     clf.fit(scaler.transform(Xtr), ytr)
@@ -130,7 +141,7 @@ def main() -> None:
     parser.add_argument("--category", default="bottle")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--backbone", default="handcrafted",
-                        choices=["handcrafted", "mobilenet"])
+                        choices=["handcrafted", "mobilenet", "dinov2"])
     parser.add_argument("--model-out", default="models/classifier.onnx")
     parser.add_argument("--splits-out", default="models/splits.json")
     args = parser.parse_args()

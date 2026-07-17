@@ -1,0 +1,9 @@
+# Extra deps for ROAR-side work only (NOT needed for edge inference or the base pipeline).
+# Install into the tollgate env on ROAR alongside requirements.txt.
+-r requirements.txt
+
+# One-time DINOv2 -> ONNX export (eval/export_dinov2.py). Inference uses onnxruntime only.
+torch>=2.2
+
+# Point-cloud handling for the MVTec 3D-AD path (loader + voxel downsample privacy).
+open3d>=0.18

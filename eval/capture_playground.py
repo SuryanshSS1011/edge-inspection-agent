@@ -32,15 +32,18 @@ from edge.router import Costs, escalation_band
 
 COSTS = Costs(C_FN=100.0, C_FP=5.0, C_cloud=2.0, residual_cloud_error=0.3)
 
-# Curated parts: (dataset, category, split-relative image, kind, caption). Filled with real
-# paths at runtime; these are representative picks that tell the story.
+# Curated parts, CHOSEN by their real calibrated p (via --scan) so the pipeline flow is
+# legible: a confident-good part that decides locally, and two uncertain parts (one logical,
+# one structural) that land in the escalation band and go to the cloud. Every value the
+# playground shows is the real model output on these exact images; only the selection is
+# curated, so the demo reads clearly without any fabrication.
 PARTS = [
     {"key": "bottle_good", "dataset": "mvtec_ad", "category": "bottle",
-     "rel": "test/good/000.png", "caption": "Clean bottle"},
-    {"key": "bottle_broken", "dataset": "mvtec_ad", "category": "bottle",
-     "rel": "test/broken_large/000.png", "caption": "Broken bottle (structural)"},
+     "rel": "test/good/004.png", "caption": "Clean bottle"},
     {"key": "pushpins_logical", "dataset": "loco", "category": "pushpins",
-     "rel": "test/logical_anomalies/000.png", "caption": "Pushpins, wrong count (logical)"},
+     "rel": "test/logical_anomalies/029.png", "caption": "Pushpins, wrong count (logical)"},
+    {"key": "bottle_contamination", "dataset": "mvtec_ad", "category": "bottle",
+     "rel": "test/contamination/003.png", "caption": "Contaminated bottle (structural)"},
 ]
 
 

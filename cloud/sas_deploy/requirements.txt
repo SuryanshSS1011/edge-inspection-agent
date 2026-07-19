@@ -1,0 +1,5 @@
+# Runtime deps for the SAS reasoning server (cloud/handler.py -> mcp_server -> qwen_reason).
+# The reasoning path is otherwise pure stdlib + urllib; tenacity is the one third-party dep
+# (exponential backoff on cloud 429/5xx). The MCP SDK is imported lazily and only needed for
+# the stdio interface, not the HTTP server, so it is not required here.
+tenacity>=8.2

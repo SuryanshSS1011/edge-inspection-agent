@@ -107,21 +107,28 @@ def _kinded_scores(data, category, backbone, workdir):
 
 
 def _cloud_says_defect(image_path: str) -> bool:
-    """Call the real qwen3-vl-plus endpoint on one image and return its defect verdict.
+    """Call the real qwen3-vl-plus reasoner on one image and return its defect verdict.
 
-    Sends the RGB image as the ROI so Qwen can reason about count/arrangement. Any transport
-    or parse failure is treated as 'no verdict' (False) and logged, so a flaky call never
-    silently inflates recall."""
+    Prefers the deployed SAS server (EDGE_CLOUD_URL), which already holds the DASHSCOPE key,
+    so the key never has to live on the eval machine. Falls back to a direct DashScope call if
+    no server URL is set (needs DASHSCOPE_API_KEY locally). Any failure is treated as 'no
+    verdict' (False) and logged, so a flaky call never silently inflates recall."""
     import base64
-
-    from cloud.qwen_reason import diagnose
+    import os
 
     with open(image_path, "rb") as f:
         roi = f.read()
+    roi_b64 = base64.b64encode(roi).decode("ascii")
+    ctx = {"category": "loco", "note": "inspect count/arrangement too"}
+
+    server = os.environ.get("EDGE_CLOUD_URL", "").strip()
     try:
-        out = diagnose(roi_png=roi, embedding=None,
-                       context={"category": "loco", "note": "inspect count/arrangement too"},
-                       timeout=40, max_retries=1)
+        if server:
+            from edge.cloud_client import CloudClient
+            out = CloudClient(server, timeout_s=45.0).diagnose(roi_png_b64=roi_b64, context=ctx)
+        else:
+            from cloud.qwen_reason import diagnose
+            out = diagnose(roi_png=roi, embedding=None, context=ctx, timeout=45, max_retries=1)
         return bool(out.get("defect_present"))
     except Exception as exc:  # noqa: BLE001
         print(f"    [cloud call failed on {image_path}: {exc}]", flush=True)

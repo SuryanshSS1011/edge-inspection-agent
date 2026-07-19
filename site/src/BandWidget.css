@@ -1,0 +1,181 @@
+.band {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+
+.band-track {
+  position: relative;
+  height: 128px;
+  border-radius: 8px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  margin-top: 26px; /* room for threshold tags */
+}
+
+.band-side {
+  position: absolute;
+  top: 0;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+.band-pass { left: 0; background: color-mix(in srgb, var(--pass) 9%, transparent); }
+.band-reject { background: color-mix(in srgb, var(--reject) 9%, transparent); }
+
+.band-zone {
+  position: absolute;
+  top: 0;
+  bottom: 22px;
+  background: var(--grad-toll);
+  opacity: 0.9;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  box-shadow: 0 0 30px color-mix(in srgb, var(--toll) 40%, transparent);
+  transition: left 0.12s ease, width 0.12s ease;
+}
+.band-zone-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #1b1206;
+  padding-top: 8px;
+}
+
+.thresh {
+  position: absolute;
+  top: -24px;
+  bottom: 22px;
+  width: 0;
+  border-left: 1px dashed var(--line-2);
+  transition: left 0.12s ease;
+}
+.thresh-tag {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  background: var(--panel);
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.thresh-tag b { color: var(--toll); }
+
+.part {
+  position: absolute;
+  top: 42px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--ink);
+  transition: left 0.12s ease;
+}
+.part-pass { background: var(--pass); box-shadow: 0 0 10px color-mix(in srgb, var(--pass) 60%, transparent); }
+.part-escalate { background: var(--toll); box-shadow: 0 0 10px color-mix(in srgb, var(--toll) 70%, transparent); }
+.part-reject { background: var(--reject); box-shadow: 0 0 10px color-mix(in srgb, var(--reject) 60%, transparent); }
+.part-p {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--text-faint);
+}
+
+.band-axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-faint);
+}
+.band-axis-mid { letter-spacing: 0.08em; }
+
+.band-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 18px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.band-readout b { color: var(--text); }
+.band-warn { color: var(--reject); }
+
+.band-sliders {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+@media (max-width: 640px) {
+  .band-sliders { grid-template-columns: repeat(2, 1fr); }
+}
+
+.slider { display: flex; flex-direction: column; gap: 6px; }
+.slider-top { display: flex; justify-content: space-between; align-items: baseline; }
+.slider-label { font-size: 0.9rem; color: var(--text); font-weight: 600; }
+.slider-val { font-size: 0.82rem; color: var(--toll); }
+.slider-hint { font-size: 0.72rem; color: var(--text-faint); }
+
+.slider input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+  outline: none;
+}
+.slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--toll);
+  border: 2px solid var(--ink);
+  cursor: pointer;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--toll) 60%, transparent);
+}
+.slider input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--toll);
+  border: 2px solid var(--ink);
+  cursor: pointer;
+}
+
+.band-caption {
+  margin: 20px 0 0;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  max-width: 68ch;
+}
+.band-caption em { color: var(--text); font-style: normal; font-weight: 600; }

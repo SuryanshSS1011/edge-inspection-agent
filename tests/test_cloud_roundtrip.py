@@ -59,7 +59,7 @@ def test_unreachable_raises():
 
 
 def test_429_retried_then_succeeds(live_server, monkeypatch):
-    """First call returns 429, second succeeds — client retries transparently."""
+    """First call returns 429, second succeeds, and the client retries transparently."""
     import urllib.error
     call_count = {"n": 0}
     original_diagnose = srv.diagnose
@@ -80,7 +80,7 @@ def test_429_retried_then_succeeds(live_server, monkeypatch):
 
 
 def test_429_exhausted_raises_unreachable(monkeypatch):
-    """All attempts return 429 — CloudUnreachable is raised after max_attempts."""
+    """When all attempts return 429, CloudUnreachable is raised after max_attempts."""
     import urllib.error
     from unittest.mock import patch
 
@@ -94,7 +94,7 @@ def test_429_exhausted_raises_unreachable(monkeypatch):
 
 
 def test_4xx_not_retried(monkeypatch):
-    """400 Bad Request is not retryable — should raise CloudUnreachable immediately."""
+    """400 Bad Request is not retryable and should raise CloudUnreachable immediately."""
     import urllib.error
     from unittest.mock import patch
 

@@ -1,7 +1,7 @@
 """Fit the temperature scalar and report whether calibration improved.
 
-Methodology (the gotcha a sharp judge would catch): temperature is fit on the
-CALIBRATION split and ECE is reported on that same held-out split — which is DISJOINT
+Methodology is the gotcha a sharp judge would catch. Temperature is fit on the
+CALIBRATION split and ECE is reported on that same held-out split, which is DISJOINT
 from both the training split (used to fit the classifier) and the eval split (used for the
 results table). Measuring ECE on the training data would be circular.
 
@@ -53,7 +53,7 @@ def main() -> None:
     calib = splits["calibration"]
     logits, labels = collect_logits(args.model, calib)
     if logits.size == 0:
-        raise SystemExit("no calibration samples — check --splits")
+        raise SystemExit("no calibration samples, check --splits")
 
     raw_p = apply_temperature(logits, 1.0)
     temperature = fit_temperature(logits, labels)

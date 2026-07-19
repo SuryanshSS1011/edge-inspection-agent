@@ -30,7 +30,7 @@ def test_drift_detected_when_disagreement_exceeds_threshold():
 def test_no_drift_before_half_window_filled():
     from edge.drift import ModelDriftConfig, ModelDriftMonitor
     mon = ModelDriftMonitor(ModelDriftConfig(window=10, disagreement_threshold=0.01))
-    # All disagree but only 4 samples — below window//2=5
+    # All disagree but only 4 samples, which is below window//2=5
     for _ in range(4):
         mon.record(edge_defect=True, cloud_defect=False)
     assert not mon.is_drifted
@@ -43,7 +43,7 @@ def test_window_rolls_old_entries_out():
     for _ in range(5):
         mon.record(True, False)
     assert mon.is_drifted
-    # Add 5 more that agree — old disagreements pushed out
+    # Add 5 more that agree so the old disagreements get pushed out
     for _ in range(5):
         mon.record(True, True)
     assert not mon.is_drifted
@@ -137,7 +137,7 @@ def test_anonymize_skin_blurs_skin_pixels():
 
 def test_anonymize_skin_passthrough_non_skin():
     from edge.privacy import PrivacyFilter
-    # A clearly non-skin color: blue (H≈240°) — should be returned unchanged
+    # A clearly non-skin color: blue (H≈240°) should be returned unchanged
     frame = np.full((10, 10, 3), [200, 50, 50], dtype=np.uint8)
     result = PrivacyFilter._anonymize_skin(frame)
     np.testing.assert_array_equal(result, frame)

@@ -8,11 +8,11 @@ import pytest
 from edge.drift import DriftConfig, DriftDetector, DriftState
 
 
-# ── unit: DriftDetector ────────────────────────────────────────────────────
+# unit tests for DriftDetector
 
 def _ref():
     rng = np.random.default_rng(0)
-    return rng.beta(2, 5, size=300).tolist()  # reference: skewed toward 0
+    return rng.beta(2, 5, size=300).tolist()  # reference skewed toward 0
 
 
 def test_ok_when_recent_matches_reference():
@@ -38,7 +38,7 @@ def test_alert_when_distribution_shifts():
 def test_no_check_before_enough_data():
     ref = _ref()
     det = DriftDetector(ref, DriftConfig(window=100, check_every=1, ks_threshold=0.15))
-    # only 20 samples — below window//2=50 threshold
+    # only 20 samples, below window//2=50 threshold
     recent = [0.9] * 20
     state = det.check(recent)
     assert state == DriftState.OK  # not enough data, stays OK
@@ -51,7 +51,7 @@ def test_record_and_maybe_check_fires_on_schedule():
     rng = np.random.default_rng(3)
     shifted = rng.beta(8, 2, size=50).tolist()
 
-    # feed 9 samples — no check yet
+    # feed 9 samples, no check yet
     for p in shifted[:9]:
         state = det.record_and_maybe_check(p, shifted)
     assert det.state == DriftState.OK  # hasn't checked yet
@@ -61,7 +61,7 @@ def test_record_and_maybe_check_fires_on_schedule():
     assert state == DriftState.ALERT
 
 
-# ── integration: store stores and retrieves confidences ───────────────────
+# integration test that the store saves and retrieves confidences
 
 def test_store_confidence_history():
     from edge.store import Store
@@ -84,7 +84,7 @@ def test_store_recent_confidences_capped():
         assert recent[-1] == pytest.approx(19 / 20)
 
 
-# ── integration: calibration save/load round-trips reference_confidences ──
+# integration test that calibration save/load round-trips reference_confidences
 
 def test_calibration_save_includes_reference():
     from edge.calibration import save

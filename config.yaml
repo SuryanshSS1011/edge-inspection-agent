@@ -1,6 +1,6 @@
 costs:
-  C_FN: 100.0      # false negative (defect shipped) — large
-  C_FP: 5.0        # false positive (good part rejected) — small
+  C_FN: 100.0      # large cost of a false negative (defect shipped)
+  C_FP: 5.0        # small cost of a false positive (good part rejected)
   C_cloud: 2.0     # dollars + latency/bandwidth penalty for one escalation
   residual_cloud_error: 0.3  # eps in the escalation inequality
 

@@ -1,5 +1,5 @@
 """MCP tool server exposing `diagnose_defect`, deployed on Alibaba Cloud Function
-Compute (build plan §6 — must NOT run from a laptop).
+Compute (build plan §6, which must NOT run from a laptop).
 
 The tool takes a privacy-filtered ROI (base64 PNG) or an abstracted embedding plus
 minimal context, and returns the structured diagnosis from qwen_reason.diagnose().

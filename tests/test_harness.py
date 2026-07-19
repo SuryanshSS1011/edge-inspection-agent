@@ -1,5 +1,6 @@
-"""M7 tests: the eval harness produces sensible, internally-consistent rows for each
-condition, and the table renders. Uses a synthetic (p, label) stream — no model/cloud.
+"""M7 tests confirm the eval harness produces sensible, internally-consistent rows for each
+condition, and that the table renders. Everything runs on a synthetic (p, label) stream with
+no model or cloud involved.
 """
 
 import numpy as np
@@ -93,8 +94,8 @@ def _row_cost(table, label):
 
 
 def test_reconnect_cost_never_exceeds_cloud_everything():
-    # The anomaly guard: the degradation path (deferred, then drained on reconnect) must
-    # not cost MORE than always calling the cloud — that would invert the thesis.
+    # The anomaly guard checks that the degradation path (deferred, then drained on reconnect)
+    # never costs MORE than always calling the cloud, since that would invert the thesis.
     results = run_all(_stream(400), COSTS, seeds=(0, 1))
     table = to_markdown(results)
     cloud_every = _row_cost(table, "Cloud-everything")
@@ -107,8 +108,8 @@ def test_reconnect_cost_never_exceeds_cloud_everything():
 
 def test_reconnect_counts_one_drain_set_not_two():
     # degraded and offline defer the SAME items; the reconnect row must reflect one drain
-    # set, so its cost tracks a single condition's deferred count (with batch discount) —
-    # not the sum of degraded + offline (which would ~double it).
+    # set, so its cost tracks a single condition's deferred count (with batch discount) rather
+    # than the sum of degraded + offline (which would ~double it).
     from eval.make_table import BATCH_DISCOUNT, _c_cloud
     results = run_all(_stream(400), COSTS, seeds=(0,))
     n_def = max(results[c]["result"].n_deferred for c in results)
@@ -119,7 +120,7 @@ def test_reconnect_counts_one_drain_set_not_two():
 
 
 def test_reconnect_undiscounted_equals_hybrid_live():
-    # The conclusion must not depend on the batching discount: undiscounted, the deferred
+    # The conclusion must not depend on the batching discount. Undiscounted, the deferred
     # drain is the SAME band items at the SAME per-call price as hybrid's live escalations,
     # so reconnect(undiscounted) == hybrid live cost. This is what lets us drop the 10%
     # and still keep reconnect <= hybrid <= cloud-everything.

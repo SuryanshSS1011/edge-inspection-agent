@@ -1,6 +1,6 @@
-"""Privacy filter: nothing raw leaves the device (§3.3).
+"""Privacy filter that ensures nothing raw leaves the device (§3.3).
 
-On escalation, transmit only a cropped ROI or an abstracted embedding — never the full
+On escalation, transmit only a cropped ROI or an abstracted embedding and never the full
 frame. Every byte/field that crosses the device boundary is recorded as a CrossingRecord
 so "zero PII egress" is a *measured* claim (see docs/privacy_model.md), not an assertion.
 
@@ -17,7 +17,7 @@ import numpy as np  # type: ignore
 # dropped and never crosses the boundary. Keep this allowlist deliberately small.
 ALLOWED_CONTEXT_KEYS = {"category"}
 
-# Context keys that are explicitly PII / identifying — if one ever appears it is dropped
+# Context keys that are explicitly PII / identifying. If one ever appears it is dropped
 # AND recorded as a blocked crossing so the audit shows the filter caught it.
 PII_CONTEXT_KEYS = {"operator", "serial", "lot_id", "timestamp", "location", "frame"}
 
@@ -80,7 +80,7 @@ class PrivacyFilter:
             roi_png = self._encode_png(roi)
             crossings = [CrossingRecord(field="roi_png", nbytes=len(roi_png), is_pii=False)]
             payload = FilteredPayload(roi_png=roi_png, embedding=None, context=scrubbed)
-        else:  # embedding mode — no pixels leave at all
+        else:  # embedding mode, where no pixels leave at all
             embedding = self._embed(roi)
             nbytes = len(embedding) * 8  # float64 wire size
             crossings = [CrossingRecord(field="embedding", nbytes=nbytes, is_pii=False)]
@@ -104,7 +104,7 @@ class PrivacyFilter:
     def _assert_not_full_frame(roi: np.ndarray, frame: np.ndarray) -> None:
         if roi.shape[:2] == frame.shape[:2]:
             raise PrivacyViolation(
-                "ROI equals the full frame — refusing to escalate raw frame bytes. "
+                "ROI equals the full frame, so refusing to escalate raw frame bytes. "
                 "Provide a tighter bbox (a detector should localize the part)."
             )
 
@@ -112,7 +112,7 @@ class PrivacyFilter:
     def _anonymize_skin(roi: np.ndarray) -> np.ndarray:
         """Blur skin-tone regions so hands/faces entering the inspection zone never leave
         the device as recoverable biometric data. Uses an HSV skin-tone mask (robust to
-        lighting variation) and a box-blur replacement — pure numpy, no cv2 dependency.
+        lighting variation) and a box-blur replacement, all pure numpy with no cv2 dependency.
         """
         if roi.ndim != 3 or roi.shape[2] != 3:
             return roi
@@ -160,7 +160,7 @@ class PrivacyFilter:
     def _embed(self, roi: np.ndarray) -> list:
         if self._embedder is not None:
             return list(self._embedder(roi))
-        # Default abstracted embedding: per-channel mean/std — carries no recoverable image.
+        # Default abstracted embedding is per-channel mean/std, carrying no recoverable image.
         chans = roi.reshape(-1, roi.shape[2]) if roi.ndim == 3 else roi.reshape(-1, 1)
         means = chans.mean(axis=0)
         stds = chans.std(axis=0)
@@ -184,7 +184,7 @@ class PrivacyFilter:
                                                 is_pii=False))
                 continue
             # Unlisted keys are dropped (default-deny) AND logged as blocked, so the audit
-            # trail proves the filter caught an unanticipated identifier — not just known
+            # trail proves the filter caught an unanticipated identifier, not just known
             # PII. is_pii=True because an unknown field could carry PII; blocked=True so it
             # never counts as egress.
             crossings.append(CrossingRecord(field=f"context.{key}", nbytes=nbytes,

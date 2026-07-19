@@ -82,7 +82,7 @@ def cloud_cost_per_1k(n_escalations: int, n_items: int, c_cloud: float) -> float
 def pii_bytes_out(boundary_log_rows: List[dict]) -> int:
     """PII bytes that actually left the device. Target: 0.
 
-    A crossing flagged is_pii but blocked means the filter *caught* it — it did not
+    A crossing flagged is_pii but blocked means the filter *caught* it. It did not
     egress, so it must not count toward leaked PII.
     """
     return sum(

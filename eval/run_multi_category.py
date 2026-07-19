@@ -1,9 +1,9 @@
-"""Multi-category robustness run: train + calibrate + eval the full pipeline per MVTec
-category, then aggregate the hybrid recall across categories.
+"""Multi-category robustness run that trains, calibrates, and evals the full pipeline per
+MVTec category, then aggregates the hybrid recall across categories.
 
-The point is robustness, not raw accuracy: if the cost-aware router holds up across
+The point is robustness rather than raw accuracy. If the cost-aware router holds up across
 categories with independently-trained modest local models, that's evidence the
-orchestration — not a lucky single model — is doing the work. Each category gets its own
+orchestration is doing the work rather than a lucky single model. Each category gets its own
 classifier, its own fitted temperature, and its own disjoint eval split.
 
     python -m eval.run_multi_category --data data --categories bottle grid metal_nut screw
@@ -88,7 +88,7 @@ def to_markdown(rows):
         "",
         "Each category has its own independently-trained modest classifier, its own fitted "
         "temperature, and its own disjoint eval split. Hybrid recall holding across "
-        "categories is the robustness claim: the cost-aware router, not a single lucky "
+        "categories is the robustness claim. The cost-aware router, not a single lucky "
         "model, carries the accuracy.",
         "",
         "| Category | Eval n | ECE (before→after) | Local-only | Cloud-every | **Hybrid** |",
@@ -112,7 +112,7 @@ def to_markdown(rows):
         f"**Aggregate across {len(rows)} categories:** hybrid recall "
         f"{mean_h:.3f} ± {std_h:.3f} (std), vs local-only mean {mean_l:.3f}. "
         f"Hybrid lifts recall by **+{mean_h - mean_l:.3f}** on average and stays tight "
-        f"across categories — the orchestration generalizes.",
+        f"across categories, so the orchestration generalizes.",
     ]
     return "\n".join(lines)
 

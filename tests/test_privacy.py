@@ -1,5 +1,5 @@
-"""M5 tests: the privacy filter never lets the full frame or PII fields cross, and the
-boundary log measures exactly what does.
+"""M5 tests that the privacy filter never lets the full frame or PII fields cross, and
+that the boundary log measures exactly what does.
 
 Cropping and measurement are pure numpy; we use embedding mode (no cv2 needed) for the
 egress-measurement tests and only touch ROI/PNG behavior where the logic is cv2-free.
@@ -54,7 +54,7 @@ def test_pii_context_is_blocked_and_logged():
 
 
 def test_unlisted_context_keys_are_dropped_and_logged():
-    # Default-deny: an unanticipated key is NOT sent, and IS logged as a blocked crossing
+    # Under default-deny an unanticipated key is NOT sent, and IS logged as a blocked crossing
     # so the audit trail can prove the filter caught an unknown identifier.
     pf = PrivacyFilter(mode="embedding")
     payload = pf.filter(_frame(), bbox=(8, 8, 32, 32), context={"random_note": "hi"})
@@ -85,7 +85,7 @@ def test_bad_mode_rejected():
 
 
 def test_red_team_leak_attempts_are_all_blocked():
-    """Adversarial: try to smuggle out PII, an unknown identifier, and the full frame.
+    """Adversarially try to smuggle out PII, an unknown identifier, and the full frame.
     All must be blocked-and-logged, and measured PII egress stays 0. This is what makes
     'zero PII egress' a caught-leak result, not a tautology."""
     pf = PrivacyFilter(mode="embedding")
@@ -103,7 +103,7 @@ def test_red_team_leak_attempts_are_all_blocked():
     assert payload.context == {"category": "bottle"}     # only the allowed key survived
     assert payload.pii_bytes == 0                         # nothing sensitive egressed
 
-    # 3) Attempt to escalate the FULL frame (a raw-image leak) — must be refused.
+    # 3) Attempt to escalate the FULL frame (a raw-image leak) that must be refused.
     with pytest.raises(PrivacyViolation):
         pf_roi = PrivacyFilter(mode="roi")
         pf_roi.filter(frame, bbox=(0, 0, frame.shape[1], frame.shape[0]))

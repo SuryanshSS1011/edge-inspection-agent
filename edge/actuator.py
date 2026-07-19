@@ -1,6 +1,6 @@
 """Actuation: map the final decision to a physical action (§3.6).
 
-Actuation must fire correctly in all three network modes — it never depends on the
+Actuation must fire correctly in all three network modes and never depends on the
 cloud. UsbRelayActuator for the real loop (M4), MockActuator for dev/tests.
 """
 
@@ -54,7 +54,7 @@ class UsbRelayActuator(Actuator):
 
 
 class MockActuator(Actuator):
-    """Records actions instead of touching hardware — lets all software land before
+    """Records actions instead of touching hardware so all software can land before
     the relay arrives (top-risk mitigation, build plan §12)."""
 
     def __init__(self):

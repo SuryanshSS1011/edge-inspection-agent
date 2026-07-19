@@ -8,7 +8,7 @@ Directory layout (MVTec AD convention):
     root/<category>/ground_truth/<defect>/*_mask.png   # pixel-precise anomaly masks
 
 A subdir named "good" => label 0; any other subdir => label 1 (defective).
-`ground_truth` holds segmentation masks, NOT samples — it is not a valid split here.
+`ground_truth` holds segmentation masks, NOT samples, so it is not a valid split here.
 
 Yields (image_path, label, category).
 """

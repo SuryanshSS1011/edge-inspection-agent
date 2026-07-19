@@ -1,4 +1,4 @@
-"""Unit tests for the cost-aware router — the priority test target.
+"""Unit tests for the cost-aware router, the priority test target.
 
 These pin the band math against hand-worked cost values so the core IP cannot
 silently regress.
@@ -88,7 +88,7 @@ def test_degraded_never_escalates_but_still_acts():
 
 
 def test_offline_in_band_rejects_conservatively():
-    # The graceful-degradation safety property: offline + in band -> LOCAL_ACT,
+    # The graceful-degradation safety property means offline + in band -> LOCAL_ACT,
     # and because p (0.3) >= p* (0.048), the local action is REJECT.
     d = decide(0.3, NetworkMode.OFFLINE, DEFAULT)
     assert d == Decision.LOCAL_ACT
@@ -97,9 +97,9 @@ def test_offline_in_band_rejects_conservatively():
 
 def test_local_action_boundary():
     ps = p_star(DEFAULT)
-    # Exactly at p*: ties break toward REJECT.
+    # Exactly at p*, ties break toward REJECT.
     assert local_action(ps, DEFAULT) == Action.REJECT
-    # Just below: PASS.
+    # Just below p*, the action is PASS.
     assert local_action(ps - 1e-6, DEFAULT) == Action.PASS
 
 

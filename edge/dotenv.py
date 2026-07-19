@@ -1,8 +1,8 @@
 """Zero-dependency .env loader.
 
 Reads KEY=VALUE lines from a .env file into os.environ (without overriding variables
-already set in the real environment, so exported vars and CI/FC config win). Kept
-dependency-free — no python-dotenv needed. Blank values are skipped so an unset
+already set in the real environment, so exported vars and CI/FC config win). It stays
+dependency-free with no python-dotenv needed. Blank values are skipped so an unset
 placeholder in .env never clobbers a code default.
 """
 

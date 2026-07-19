@@ -21,7 +21,7 @@ from tenacity import (
 
 
 class CloudUnreachable(RuntimeError):
-    """The cloud endpoint could not be reached or failed — caller should fall back."""
+    """The cloud endpoint could not be reached or failed, so the caller should fall back."""
 
 
 def _is_retryable(exc: BaseException) -> bool:

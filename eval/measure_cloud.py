@@ -41,7 +41,7 @@ def _load_eval_with_p(model, splits, temperature):
 
 
 def _roi_png_b64(path):
-    """Encode a center-cropped ROI as PNG base64 — the same shape the edge would send.
+    """Encode a center-cropped ROI as PNG base64 in the same shape the edge would send.
 
     Uses Pillow (cv2 not required). Inset by 1/8 on each edge = the orchestrator's default
     ROI, so the payload matches the deployed path.
@@ -52,8 +52,8 @@ def _roi_png_b64(path):
 
     img = Image.open(path).convert("RGB")
     w, h = img.size
-    # Light 1/16 inset: strips the frame border (still not the full frame, so the privacy
-    # boundary holds) while keeping the part — including edge/mouth defects — in view.
+    # Light 1/16 inset strips the frame border (still not the full frame, so the privacy
+    # boundary holds) while keeping the part in view, including any edge/mouth defects.
     iw, ih = w // 16, h // 16
     roi = img.crop((iw, ih, w - iw, h - ih))
     buf = io.BytesIO()

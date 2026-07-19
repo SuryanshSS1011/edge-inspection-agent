@@ -1,4 +1,4 @@
-"""Cost-aware escalation router — the core IP.
+"""Cost-aware escalation router, the core IP of the system.
 
 Decides, per inspected item, whether to act locally now or escalate to the cloud.
 The escalation threshold is derived from *asymmetric operator cost*, not raw model
@@ -49,8 +49,8 @@ class NetworkMode(str, Enum):
 
 @dataclass(frozen=True)
 class Costs:
-    C_FN: float                  # false negative (defect shipped) — large
-    C_FP: float                  # false positive (good part rejected) — small
+    C_FN: float                  # false negative (defect shipped), large cost
+    C_FP: float                  # false positive (good part rejected), small cost
     C_cloud: float               # cost of one escalation
     residual_cloud_error: float = 0.0  # eps: residual error even after a cloud call
 
@@ -67,7 +67,7 @@ def p_star(costs: Costs) -> float:
 
 
 def _peak_cost(costs: Costs) -> float:
-    """Height of cost_local at p* — the max value the band's threshold can clear."""
+    """Height of cost_local at p*, the max value the band's threshold can clear."""
     return (costs.C_FP * costs.C_FN) / (costs.C_FP + costs.C_FN)
 
 

@@ -1,6 +1,6 @@
 """Network-tier controller: full / degraded / offline (§3.5).
 
-The mode is switchable at runtime and injected into the router — never read ad hoc.
+The mode is switchable at runtime and injected into the router, never read ad hoc.
 For the demo and eval, force()/release() pin a mode deterministically. In live use,
 probe() measures link health via an injected probe callable and sets the mode.
 """

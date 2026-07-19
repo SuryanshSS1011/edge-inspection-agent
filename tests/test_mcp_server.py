@@ -1,5 +1,6 @@
-"""Tests for the diagnose_defect tool entrypoint — input handling and decoding,
-with the Qwen call patched out (no network/API key needed).
+"""Tests for the diagnose_defect tool entrypoint covering input handling and decoding.
+
+The Qwen call is patched out so no network or API key is needed.
 """
 
 import base64

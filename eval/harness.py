@@ -1,4 +1,4 @@
-"""Eval harness internals: replay a labeled item stream through the real orchestrator
+"""Eval harness internals that replay a labeled item stream through the real orchestrator
 under each operating condition and read metrics back from its store.
 
 Kept separate from run_eval.py so the per-condition runner is unit-testable. The stream
@@ -80,8 +80,8 @@ class _Cloud:
     """Models the cloud verdict. accuracy = P(correct defect/no-defect call).
 
     The true label is threaded through the privacy-filtered context (key 'label') so the
-    modeled verdict is matched to the *actual* item being diagnosed — not to call order,
-    which differs across conditions because each escalates a different subset.
+    modeled verdict is matched to the *actual* item being diagnosed rather than to call
+    order, which differs across conditions because each escalates a different subset.
     """
 
     def __init__(self, cursor: "_Cursor", accuracy: float = 0.98, seed: int = 0):
@@ -187,7 +187,7 @@ def _summarize(condition, store, labels, costs) -> ConditionResult:
     # These are the only ones that incur current cloud cost / egress in this mode.
     n_live = sum(1 for e in events if e.bytes_to_cloud > 0)
     # Deferred = would-be escalations queued for sync on reconnect. Their cost is realized
-    # later (in the reconnect/sync row), NOT here — booking it twice would double-count.
+    # later (in the reconnect/sync row), NOT here. Booking it twice would double-count.
     n_deferred = sum(1 for e in events if e.outbox_state in ("queued", "reconciled"))
 
     return ConditionResult(

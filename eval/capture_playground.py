@@ -194,14 +194,40 @@ def _copy_image(part, base, out_dir):
     im.save(out_dir / f"{part['key']}.png")
 
 
+def scan(base, dataset, category, subdir, backbone, limit=30):
+    """Print the real calibrated p for each image under <category>/<subdir>, so a demo part
+    can be CHOSEN by its actual score (honest curation) rather than assumed. Not fabrication:
+    every p printed is the real model output; we just pick images whose p tells the story."""
+    root = _dataset_root(base, dataset)
+    folder = root / category / subdir
+    scorer = _score_model(base, dataset, category, backbone)
+    if scorer is None:
+        print(f"  [no anomaly model for {category}]")
+        return
+    band = escalation_band(COSTS)
+    lo, hi = band if band else (1.0, 0.0)
+    imgs = sorted(folder.glob("*.png"))[:limit] if folder.is_dir() else []
+    print(f"# {dataset}/{category}/{subdir}  band=[{lo:.3f},{hi:.3f}]")
+    for img in imgs:
+        p = scorer(str(img))
+        where = "IN-BAND(escalate)" if lo <= p <= hi else ("low(local pass)" if p < lo else "high(local reject)")
+        print(f"  {img.name}  p={p:.3f}  {where}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True, help="datasets base (holds mvtec_ad/, loco/, ...)")
     parser.add_argument("--cloud-url", default=os.environ.get("EDGE_CLOUD_URL", ""))
     parser.add_argument("--backbone", default="dinov2",
                         choices=["handcrafted", "mobilenet", "dinov2"])
+    parser.add_argument("--scan", nargs=3, metavar=("DATASET", "CATEGORY", "SUBDIR"),
+                        help="print real p for images under a folder to pick demo parts")
     parser.add_argument("--out", default="site/public/playground")
     args = parser.parse_args()
+
+    if args.scan:
+        scan(args.data, args.scan[0], args.scan[1], args.scan[2], args.backbone)
+        return
 
     out = Path(args.out)
     img_dir = out / "img"

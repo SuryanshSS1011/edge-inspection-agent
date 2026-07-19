@@ -1,15 +1,112 @@
 {
-  "costs": {"C_FN": 100.0, "C_FP": 5.0, "C_cloud": 2.0, "epsilon": 0.3},
-  "band": {"lo": 0.023, "hi": 0.54},
+  "costs": {
+    "C_FN": 100.0,
+    "C_FP": 5.0,
+    "C_cloud": 2.0,
+    "epsilon": 0.3
+  },
+  "band": {
+    "lo": 0.023,
+    "hi": 0.54
+  },
   "pstar": 0.0476,
   "runs": [
-    {"key": "bottle_good", "caption": "Clean bottle", "image": "playground/img/bottle_good.png", "uncertainty": 0.02,
-     "full": {"network":"full","p":0.01,"in_band":false,"decision":"LOCAL_ACT","bytes_to_cloud":0,"pii_bytes":0,"action":"PASS"},
-     "offline": {"network":"offline","p":0.01,"in_band":false,"decision":"LOCAL_ACT","action":"PASS","outbox_state":"none"}},
-    {"key": "bottle_broken", "caption": "Broken bottle (structural)", "image": "playground/img/bottle_broken.png", "uncertainty": 0.6,
-     "full": {"network":"full","p":0.30,"in_band":true,"decision":"ESCALATE","bytes_to_cloud":54,"pii_bytes":0,"action":"REJECT",
-       "cloud":{"defect_present":true,"defect_type":"broken_glass","confidence":0.94,"root_cause":"large fracture on the bottle wall","recommended_action":"reject"}},
-     "offline": {"network":"offline","p":0.30,"in_band":true,"decision":"DEFER_AND_ACT","action":"REJECT","outbox_state":"queued",
-       "reconciled":{"defect_present":true,"defect_type":"broken_glass","confidence":0.94,"root_cause":"large fracture","recommended_action":"reject"}}}
+    {
+      "key": "bottle_good",
+      "caption": "Clean bottle",
+      "image": "img/bottle_good.png",
+      "uncertainty": 0.003,
+      "full": {
+        "network": "full",
+        "p": 0.002,
+        "in_band": false,
+        "decision": "LOCAL_ACT",
+        "bytes_to_cloud": 0,
+        "pii_bytes": 0,
+        "action": "PASS"
+      },
+      "offline": {
+        "network": "offline",
+        "p": 0.002,
+        "in_band": false,
+        "decision": "LOCAL_ACT",
+        "action": "PASS",
+        "outbox_state": "none"
+      }
+    },
+    {
+      "key": "pushpins_logical",
+      "caption": "Pushpins, wrong count (logical)",
+      "image": "img/pushpins_logical.png",
+      "uncertainty": 0.684,
+      "full": {
+        "network": "full",
+        "p": 0.342,
+        "in_band": true,
+        "decision": "ESCALATE",
+        "bytes_to_cloud": 54,
+        "pii_bytes": 0,
+        "cloud": {
+          "root_cause": "The bottom-right compartment contains 2 pushpins, while all other compartments contain exactly 1 pushpin. This violates the expected uniform count per compartment (1 each) for a standard organized kit.",
+          "defect_present": true,
+          "defect_type": "logical:wrong_count",
+          "confidence": 0.98,
+          "recommended_action": "Remove one pushpin from the bottom-right compartment to ensure each of the 15 compartments contains exactly one pushpin."
+        },
+        "action": "REJECT"
+      },
+      "offline": {
+        "network": "offline",
+        "p": 0.342,
+        "in_band": true,
+        "decision": "DEFER_AND_ACT",
+        "action": "REJECT",
+        "outbox_state": "queued",
+        "reconciled": {
+          "root_cause": "The bottom-right compartment contains 2 pushpins, while all other compartments contain exactly 1 pushpin. This violates the expected uniform count per compartment (1 each) for a standard organized kit.",
+          "defect_present": true,
+          "defect_type": "logical:wrong_count",
+          "confidence": 0.98,
+          "recommended_action": "Remove one pushpin from the bottom-right compartment to ensure each of the 15 compartments contains exactly one pushpin."
+        }
+      }
+    },
+    {
+      "key": "bottle_contamination",
+      "caption": "Contaminated bottle (structural)",
+      "image": "img/bottle_contamination.png",
+      "uncertainty": 0.947,
+      "full": {
+        "network": "full",
+        "p": 0.527,
+        "in_band": true,
+        "decision": "ESCALATE",
+        "bytes_to_cloud": 54,
+        "pii_bytes": 0,
+        "cloud": {
+          "root_cause": "A visible chip or irregularity is present on the inner rim of the bottle neck, specifically at approximately the 3 o'clock position, where the glass appears fractured and uneven compared to the otherwise smooth circular contour.",
+          "defect_present": true,
+          "defect_type": "structural:chip",
+          "confidence": 0.92,
+          "recommended_action": "Reject the bottle; inspect upstream molding or handling equipment for cause of chipping."
+        },
+        "action": "REJECT"
+      },
+      "offline": {
+        "network": "offline",
+        "p": 0.527,
+        "in_band": true,
+        "decision": "DEFER_AND_ACT",
+        "action": "REJECT",
+        "outbox_state": "queued",
+        "reconciled": {
+          "root_cause": "A visible chip or irregularity is present on the inner rim of the bottle neck, specifically at approximately the 3 o'clock position, where the glass appears fractured and uneven compared to the otherwise smooth circular contour.",
+          "defect_present": true,
+          "defect_type": "structural:chip",
+          "confidence": 0.92,
+          "recommended_action": "Reject the bottle; inspect upstream molding or handling equipment for cause of chipping."
+        }
+      }
+    }
   ]
 }

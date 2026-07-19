@@ -1,0 +1,15 @@
+{
+  "costs": {"C_FN": 100.0, "C_FP": 5.0, "C_cloud": 2.0, "epsilon": 0.3},
+  "band": {"lo": 0.023, "hi": 0.54},
+  "pstar": 0.0476,
+  "runs": [
+    {"key": "bottle_good", "caption": "Clean bottle", "image": "playground/img/bottle_good.png", "uncertainty": 0.02,
+     "full": {"network":"full","p":0.01,"in_band":false,"decision":"LOCAL_ACT","bytes_to_cloud":0,"pii_bytes":0,"action":"PASS"},
+     "offline": {"network":"offline","p":0.01,"in_band":false,"decision":"LOCAL_ACT","action":"PASS","outbox_state":"none"}},
+    {"key": "bottle_broken", "caption": "Broken bottle (structural)", "image": "playground/img/bottle_broken.png", "uncertainty": 0.6,
+     "full": {"network":"full","p":0.30,"in_band":true,"decision":"ESCALATE","bytes_to_cloud":54,"pii_bytes":0,"action":"REJECT",
+       "cloud":{"defect_present":true,"defect_type":"broken_glass","confidence":0.94,"root_cause":"large fracture on the bottle wall","recommended_action":"reject"}},
+     "offline": {"network":"offline","p":0.30,"in_band":true,"decision":"DEFER_AND_ACT","action":"REJECT","outbox_state":"queued",
+       "reconciled":{"defect_present":true,"defect_type":"broken_glass","confidence":0.94,"root_cause":"large fracture","recommended_action":"reject"}}}
+  ]
+}

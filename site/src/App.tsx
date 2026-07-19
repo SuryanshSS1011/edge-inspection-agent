@@ -1,5 +1,6 @@
 import BandWidget from './BandWidget'
 import LiveDiagnose from './LiveDiagnose'
+import Playground from './Playground'
 import {
   ABLATION_DELTAS,
   HEADLINE_ROWS,
@@ -18,6 +19,7 @@ export default function App() {
       <Idea />
       <HowItWorks />
       <Interactive />
+      <Playground />
       <Results />
       <LiveDiagnose />
       <Ablation />
@@ -41,6 +43,7 @@ function Nav() {
           <a href="#idea">Idea</a>
           <a href="#how">Pipeline</a>
           <a href="#band">Band</a>
+          <a href="#playground">Playground</a>
           <a href="#results">Results</a>
           <a href="#try">Try it</a>
           <a href="#start">Get started</a>

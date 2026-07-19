@@ -90,15 +90,19 @@ def _kinded_scores(data, category, backbone, workdir):
     cal_idx = good_idx[: len(good_idx) // 2] + ano_idx[: len(ano_idx) // 2]
     eval_idx = good_idx[len(good_idx) // 2:] + ano_idx[len(ano_idx) // 2:]
 
-    # 3. score -> p via logistic on the calibration slice (standardize the 1-D score first).
+    # 3. score -> p via logistic. Standardize by the GOOD calibration distances so a typical
+    #    normal part sits near 0 (low p) and defects, which are many std out, map high; this
+    #    places the decision boundary in the gap rather than compressing good parts upward.
     s_cal = scores[cal_idx].reshape(-1, 1)
     y_cal = np.array([test_labels[i] for i in cal_idx])
-    s_mean, s_std = s_cal.mean(), s_cal.std() + 1e-9
-    lr = LogisticRegression(max_iter=1000)
-    lr.fit((s_cal - s_mean) / s_std, y_cal)
+    good_scores = s_cal[y_cal == 0]
+    g_mean = good_scores.mean() if good_scores.size else s_cal.mean()
+    g_std = (good_scores.std() if good_scores.size else s_cal.std()) + 1e-9
+    lr = LogisticRegression(max_iter=1000, class_weight="balanced")
+    lr.fit((s_cal - g_mean) / g_std, y_cal)
 
     def to_p(s):
-        return float(lr.predict_proba(((np.array([[s]]) - s_mean) / s_std))[0, 1])
+        return float(lr.predict_proba(((np.array([[s]]) - g_mean) / g_std))[0, 1])
 
     # 4. eval items: (p, label, kind, image_path). The path lets the real cloud be queried
     #    on escalated items.

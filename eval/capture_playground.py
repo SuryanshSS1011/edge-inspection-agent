@@ -84,18 +84,22 @@ def _score_model(base, dataset, category, backbone):
     cal_good = good[: min(20, len(good))]
     s_good = _mahalanobis(_features(cal_good, extract_many), mu, inv)
     s_ano = _mahalanobis(_features(ano, extract_many), mu, inv) if ano else np.array([])
-    s = np.concatenate([s_good, s_ano]).reshape(-1, 1)
-    y = np.array([0] * len(s_good) + [1] * len(s_ano))
-    s_mean, s_std = s.mean(), s.std() + 1e-9
-    lr = LogisticRegression(max_iter=1000)
-    if len(set(y)) == 2:
-        lr.fit((s - s_mean) / s_std, y)
-    else:
+    if s_ano.size == 0:
         return None
+
+    # Standardize the anomaly score by the GOOD distribution so a typical normal part sits
+    # near 0 (=> low p) and defects, which are many std out, map high. This puts the logistic
+    # decision boundary in the gap between the two, so clean parts genuinely pass locally.
+    g_mean, g_std = s_good.mean(), s_good.std() + 1e-9
+    z = np.concatenate([(s_good - g_mean) / g_std, (s_ano - g_mean) / g_std]).reshape(-1, 1)
+    y = np.array([0] * len(s_good) + [1] * len(s_ano))
+    lr = LogisticRegression(max_iter=1000, class_weight="balanced")
+    lr.fit(z, y)
 
     def score(image_path):
         d = _mahalanobis(_features([image_path], extract_many), mu, inv)
-        return float(lr.predict_proba(((d.reshape(-1, 1) - s_mean) / s_std))[0, 1])
+        zz = (d.reshape(-1, 1) - g_mean) / g_std
+        return float(lr.predict_proba(zz)[0, 1])
 
     return score
 

@@ -57,10 +57,18 @@ def load_mvtec3d(
 
 
 def load_organized_pointcloud(xyz_path: str) -> np.ndarray:
-    """Read an organized point cloud TIFF as an (H, W, 3) float32 array of XYZ per pixel."""
-    from PIL import Image  # lazy
+    """Read an organized point cloud TIFF as an (H, W, 3) float32 array of XYZ per pixel.
 
-    arr = np.asarray(Image.open(xyz_path), dtype=np.float32)
+    MVTec 3D-AD stores the cloud as a 3-channel float32 TIFF; PIL cannot decode that layout,
+    so we use OpenCV (IMREAD_UNCHANGED preserves the float channels). cv2 loads channels as
+    BGR-order, but here the three channels are X,Y,Z (not colour), so no swap is applied.
+    """
+    import cv2  # lazy
+
+    arr = cv2.imread(xyz_path, cv2.IMREAD_UNCHANGED)
+    if arr is None:
+        raise ValueError(f"could not read organized cloud: {xyz_path}")
+    arr = np.asarray(arr, dtype=np.float32)
     if arr.ndim != 3 or arr.shape[-1] != 3:
         raise ValueError(f"expected HxWx3 organized cloud, got {arr.shape} in {xyz_path}")
     return arr

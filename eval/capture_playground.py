@@ -176,9 +176,12 @@ def _call_cloud(image_path, category, cloud_url):
     with open(image_path, "rb") as f:
         roi = base64.b64encode(f.read()).decode("ascii")
     try:
+        # No per-call hint: the server's system prompt already reasons about BOTH structural
+        # and logical defects. Adding a "count/arrangement" note here biased structural
+        # defects (e.g. contamination) toward a "logical:wrong_count" label.
         return CloudClient(cloud_url, timeout_s=45.0).diagnose(
             roi_png_b64=roi,
-            context={"category": category, "note": "inspect count/arrangement too"},
+            context={"category": category},
         )
     except Exception as exc:  # noqa: BLE001
         print(f"  [cloud call failed: {exc}]")

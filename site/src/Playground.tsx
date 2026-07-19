@@ -111,7 +111,7 @@ export default function Playground() {
       const res = await fetch(`${DIAGNOSE_URL}/diagnose`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roi_png_b64: img, context: { category: part.key, note: 'inspect count/arrangement too' } }),
+        body: JSON.stringify({ roi_png_b64: img, context: { category: part.key } }),
       })
       setLiveCloud(res.ok ? await res.json() : captured)
     } catch {

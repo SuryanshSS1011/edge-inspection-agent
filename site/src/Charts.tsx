@@ -39,31 +39,41 @@ const COST_POINTS = [
 
 // Anchor each point's label so it never overruns the plot edges: the rightmost point
 // (Cloud-everything) is end-anchored, the leftmost (Local-only) start-anchored, and every
-// label is lifted well clear of its dot so none crowd the axis numbers.
+// label is lifted clear of its dot so none crowd the axis numbers. Each label is
+// double-stacked: the method name on top, its cloud cost on a second line beneath.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CostLabel(props: any) {
   const x = Number(props.x ?? 0)
   const y = Number(props.y ?? 0)
   const index: number = props.index ?? 0
-  const value = props.value
+  const point = COST_POINTS[index]
   const anchor = index === 0 ? 'end' : index === COST_POINTS.length - 1 ? 'start' : 'middle'
   const dx = anchor === 'end' ? -8 : anchor === 'start' ? 8 : 0
   return (
     <text
       x={x + dx}
-      y={y - 14}
+      y={y - 22}
       textAnchor={anchor}
-      style={{ fill: AXIS, fontSize: 10, fontFamily: 'Inter, system-ui, sans-serif' }}
+      style={{ fill: AXIS, fontFamily: 'Inter, system-ui, sans-serif' }}
     >
-      {value}
+      <tspan x={x + dx} style={{ fontSize: 10, fontWeight: 600 }}>
+        {point?.name}
+      </tspan>
+      <tspan
+        x={x + dx}
+        dy={12}
+        style={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: cssVar('--muted', '#5b6270') }}
+      >
+        {`$${point?.cost}/1k`}
+      </tspan>
     </text>
   )
 }
 
 export function CostChart() {
   return (
-    <ResponsiveContainer width="100%" height={272}>
-      <ScatterChart margin={{ top: 26, right: 20, bottom: 34, left: 8 }}>
+    <ResponsiveContainer width="100%" height={284}>
+      <ScatterChart margin={{ top: 40, right: 20, bottom: 34, left: 8 }}>
         <CartesianGrid stroke={GRID} strokeDasharray="2 4" />
         <XAxis
           type="number"
@@ -109,8 +119,8 @@ const ROBUST = CATEGORIES.map((c) => ({
 
 export function RobustnessChart() {
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={ROBUST} margin={{ top: 16, right: 12, bottom: 8, left: 4 }} barCategoryGap="24%">
+    <ResponsiveContainer width="100%" height={268}>
+      <BarChart data={ROBUST} margin={{ top: 24, right: 12, bottom: 8, left: 4 }} barCategoryGap="24%">
         <CartesianGrid stroke={GRID} strokeDasharray="2 4" vertical={false} />
         <XAxis
           dataKey="category"
@@ -131,7 +141,7 @@ export function RobustnessChart() {
         <Tooltip cursor={{ fill: 'rgba(128,128,128,0.08)' }} contentStyle={tooltipStyle}
           formatter={(v) => `${v}%`} />
         <ReferenceLine y={99.7} stroke={C_HYBRID} strokeDasharray="4 4"
-          label={{ value: 'mean 0.997', fill: C_HYBRID, fontSize: 10, position: 'insideTopRight', dy: -12, dx: 8 }} />
+          label={{ value: 'mean 0.997', fill: C_HYBRID, fontSize: 10, position: 'insideTopRight', dy: -20, dx: 8 }} />
         <Bar dataKey="local" name="local-only" fill={C_BAR_LOCAL} radius={[3, 3, 0, 0]} />
         <Bar dataKey="hybrid" name="hybrid" fill={C_HYBRID} radius={[3, 3, 0, 0]} />
       </BarChart>

@@ -12,15 +12,14 @@ const THREED = {
 
 export default function Modalities() {
   return (
-    <section id="modalities">
-      <div className="wrap">
-        <p className="eyebrow">Beyond structural defects</p>
-        <h2 className="section-title">One router, three kinds of defect</h2>
-        <p className="section-lead">
-          The cost decision only sees a calibrated <code>p</code>, so it does not care where
-          the uncertainty comes from. The same router handles surface defects (MVTec AD),
-          logical constraint violations (LOCO), and 3D point clouds (MVTec 3D-AD) with zero
-          change to the orchestration, privacy filter, or outbox.
+    <section id="modalities" className="col-wide">
+      <div className="col-inner">
+        <h2 className="sec-head"><span className="sec-num">5</span> One router, three kinds of defect</h2>
+        <p>
+          The cost decision only sees a calibrated <code>p</code>, so it does not care where the
+          uncertainty comes from. The same router handles surface defects (MVTec AD), logical
+          constraint violations (MVTec LOCO), and 3D point clouds (MVTec 3D-AD) with zero change
+          to the orchestration, privacy filter, or outbox.
         </p>
 
         <Loco />

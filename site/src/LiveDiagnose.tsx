@@ -67,11 +67,10 @@ export default function LiveDiagnose() {
   }
 
   return (
-    <section id="try">
-      <div className="wrap">
-        <p className="eyebrow">Try it · live cloud</p>
-        <h2 className="section-title">Send a real ROI to the deployed reasoner</h2>
-        <p className="section-lead">
+    <section id="try" className="col-wide">
+      <div className="col-inner">
+        <h3 className="sub-head">Live cloud: send a real ROI to the deployed reasoner</h3>
+        <p>
           These calls hit the actual Qwen-VL reasoning server running on Alibaba Cloud, the
           same <code>POST /diagnose</code> the edge escalates to. Pick a part and read the
           verdict it returns.

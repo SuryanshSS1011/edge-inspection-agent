@@ -121,32 +121,28 @@ export default function Playground() {
 
   if (failed) {
     return (
-      <section id="playground">
-        <div className="wrap">
-          <p className="eyebrow">Playground</p>
-          <h2 className="section-title">Interactive demo</h2>
-          <p className="pg-note">Captured runs not found. Run <code>eval.capture_playground</code> to generate them.</p>
-        </div>
+      <section id="playground" className="col">
+        <h2 className="sec-head"><span className="sec-num">3</span> Interactive pipeline demonstration</h2>
+        <p className="pg-note">Captured runs not found. Run <code>eval.capture_playground</code> to generate them.</p>
       </section>
     )
   }
   if (!data) {
-    return <section id="playground"><div className="wrap"><p className="pg-note">Loading playground…</p></div></section>
+    return <section id="playground" className="col"><p className="pg-note">Loading playground…</p></section>
   }
 
   const cloudShown = liveCloud === 'pending' ? null : (liveCloud ?? modeRun?.cloud ?? null)
   const usedLive = DIAGNOSE_URL && liveCloud && liveCloud !== 'pending'
 
   return (
-    <section id="playground">
-      <div className="wrap">
-        <p className="eyebrow">Playground · drive the pipeline</p>
-        <h2 className="section-title">Run a part through the gate</h2>
-        <p className="section-lead">
+    <section id="playground" className="col-wide">
+      <div className="col-inner">
+        <h2 className="sec-head"><span className="sec-num">3</span> Interactive pipeline demonstration</h2>
+        <p>
           Pick a part and watch it flow through the real pipeline. The edge decision (local{' '}
           <code>p</code>, routing, byte and PII counts) is <strong>replayed from a real
           captured run</strong>; on escalation the cloud reasoning is a <strong>live call</strong>{' '}
-          to the deployed qwen3-vl-plus server. Flip the network to see it keep working offline.
+          to the deployed Qwen3-VL server. Flip the network to see it keep working offline.
         </p>
 
         <div className="pg-controls">
@@ -203,6 +199,12 @@ export default function Playground() {
           </div>
         )}
       </div>
+      <p className="caption">
+        <strong>Figure 4 (interactive).</strong> One part driven through the full pipeline. The
+        local decision and byte/PII counts are replayed from a real captured run; on escalation
+        the reasoning is a live Qwen3-VL call. Toggle the network to see uncertain items defer
+        to the outbox offline and reconcile on reconnect.
+      </p>
     </section>
   )
 }

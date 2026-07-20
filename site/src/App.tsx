@@ -2,6 +2,7 @@ import BandWidget from './BandWidget'
 import LiveDiagnose from './LiveDiagnose'
 import Modalities from './Modalities'
 import Playground from './Playground'
+import { CostChart, RobustnessChart } from './Charts'
 import {
   ABLATION_DELTAS,
   HEADLINE_ROWS,
@@ -9,214 +10,179 @@ import {
   LIVE_CLOUD,
   PIPELINE,
 } from './data'
-import { CostChart, RobustnessChart } from './Charts'
 import './App.css'
 
 export default function App() {
   return (
-    <>
-      <Nav />
-      <Hero />
+    <main className="paper">
+      <TitleBlock />
+      <Abstract />
       <Idea />
-      <HowItWorks />
-      <Interactive />
-      <Playground />
+      <Method />
+      <BandFigure />
+      <PlaygroundFigure />
       <Results />
       <Modalities />
-      <LiveDiagnose />
       <Ablation />
-      <Offline />
-      <Privacy />
-      <GetStarted />
-      <Footer />
-    </>
+      <Robustness />
+      <LiveDiagnoseFigure />
+      <Reproduce />
+      <References />
+    </main>
   )
 }
 
-function Nav() {
+function TitleBlock() {
   return (
-    <nav className="nav">
-      <div className="wrap nav-inner">
-        <a href="#top" className="brand">
-          <span className="brand-mark" aria-hidden="true" />
-          Tollgate
-        </a>
-        <div className="nav-links">
-          <a href="#idea">Idea</a>
-          <a href="#how">Pipeline</a>
-          <a href="#band">Band</a>
-          <a href="#playground">Playground</a>
-          <a href="#results">Results</a>
-          <a href="#modalities">Modalities</a>
-          <a href="#try">Try it</a>
-          <a href="#start">Get started</a>
-          <a className="nav-cta" href={LINKS.repo}>GitHub</a>
-        </div>
-      </div>
-    </nav>
-  )
-}
-
-function Hero() {
-  return (
-    <header className="hero" id="top">
-      <div className="wrap">
-        <p className="eyebrow">Qwen Cloud Hackathon · EdgeAgent track</p>
-        <h1 className="hero-title">
-          Inspect at the edge.<br />
-          Escalate by <span className="hl-toll">cost</span>, not confidence.
-        </h1>
-        <p className="hero-lead">
-          Tollgate is an edge inspection agent that decides at the gate. It passes a frame
-          locally when confident, pays the cloud toll only when it is worth it, and keeps
-          working when the cloud is gone. Privacy, offline resilience, and cloud
-          orchestration all fall out of one inequality.
-        </p>
-        <div className="hero-cta">
-          <a className="btn btn-primary" href="#band">See the gate move</a>
-          <a className="btn" href={LINKS.repo}>Read the code</a>
-        </div>
-        <div className="hero-stats">
-          <Stat value="57%" label="of cloud cost" sub="hybrid vs. cloud-everything" />
-          <Stat value="0.988" label="recall on bottle" sub="vs. 0.998 cloud-everything" />
-          <Stat value="0" label="PII bytes egress" sub="measured at the boundary" />
-          <Stat value="0.969" label="±0.015 across 6 cats" sub="the router generalizes" />
-        </div>
-      </div>
+    <header className="title-block col" id="top">
+      <p className="venue">Qwen Cloud Hackathon · EdgeAgent track</p>
+      <h1 className="title">
+        Tollgate: cost-based cloud escalation for edge visual inspection
+      </h1>
+      <p className="byline">
+        A hybrid edge–cloud inspection agent that routes frames to a vision–language model by
+        the <em>cost</em> of being wrong, not a fixed confidence threshold.
+      </p>
+      <nav className="links">
+        <a href={LINKS.repo}>Code</a>
+        <span>·</span>
+        <a href="#try">Live demo</a>
+        <span>·</span>
+        <a href={LINKS.video}>Video</a>
+        <span>·</span>
+        <a href="https://www.mvtec.com/company/research/datasets">Data (MVTec)</a>
+      </nav>
     </header>
   )
 }
 
-function Stat({ value, label, sub }: { value: string; label: string; sub: string }) {
+function Abstract() {
   return (
-    <div className="stat">
-      <div className="stat-value mono">{value}</div>
-      <div className="stat-label">{label}</div>
-      <div className="stat-sub">{sub}</div>
-    </div>
+    <section className="col abstract">
+      <h2 className="ab-head">Abstract</h2>
+      <p>
+        Edge inspection systems usually bolt on privacy, offline support, and cloud
+        orchestration as separate features. We derive all three from a single decision: route
+        a frame to the cloud when the expected <em>cost</em> of deciding locally exceeds the
+        cost of a cloud call, rather than at a fixed confidence cutoff. The resulting
+        escalation band, <span className="mono">[T/C_FN, 1−T/C_FP]</span> with{' '}
+        <span className="mono">T = C_cloud + ε</span>, is derived from operating costs and
+        never hand-tuned. A confident part is decided locally in milliseconds; an uncertain
+        one escalates only a cropped ROI to Qwen3-VL, so raw frames and biometrics never leave
+        the device. When the network is down the line keeps running: uncertain items are
+        deferred to an outbox and reconciled on reconnect. On real MVTec data the hybrid
+        matches cloud-only accuracy at 57% of its cost, and the router recovers most of what a
+        deliberately weak local model misses across structural defects, logical constraint
+        violations (MVTec LOCO), and 3D point clouds (MVTec 3D-AD), with zero change to the
+        orchestration.
+      </p>
+    </section>
   )
 }
 
 function Idea() {
   return (
-    <section id="idea">
-      <div className="wrap">
-        <p className="eyebrow">The idea</p>
-        <h2 className="section-title">One decision generates three requirements</h2>
-        <p className="section-lead">
-          Most inspection systems bolt on privacy, offline support, and cloud orchestration as
-          separate features. Tollgate derives all three from a single choice: route a frame to
-          the cloud based on the <em>cost</em> of being wrong, not a fixed confidence cutoff.
-        </p>
-
-        <div className="formula">
-          <code>
-            band = [ T / C_FN , 1 − T / C_FP ]
-            <span className="formula-where">where T = C_cloud + ε</span>
-          </code>
-        </div>
-
-        <div className="idea-grid">
-          <IdeaCard tone="toll" head="In-band (uncertain)"
-            body="Escalate only the cropped ROI to Qwen-VL. Zero raw frames, zero PII." />
-          <IdeaCard tone="pass" head="Out-of-band (confident)"
-            body="Decide locally in milliseconds. No cloud call, no bandwidth, no wait." />
-          <IdeaCard tone="reject" head="Offline + in-band"
-            body="Conservatively reject locally and queue to the outbox. The line never stops." />
-          <IdeaCard tone="accent" head="Reconnect"
-            body="The outbox drains concurrently and the cloud verdict back-fills the record." />
-        </div>
-        <p className="idea-foot mono">One inequality. Three requirements.</p>
+    <section className="col" id="idea">
+      <h2 className="sec-head"><span className="sec-num">1</span> One decision, three requirements</h2>
+      <p>
+        Most inspection systems treat privacy, offline operation, and cloud orchestration as
+        independent problems. Tollgate treats them as consequences of one choice: escalate a
+        frame only when a cloud call is cost-justified. The escalation band is derived from the
+        operating costs, so it adapts as they change and is never hand-tuned:
+      </p>
+      <div className="equation">
+        <span className="mono">band = [ T / C_FN , 1 − T / C_FP ]</span>
+        <span className="eq-where mono">where T = C_cloud + ε</span>
       </div>
+      <p>Three behaviours follow directly:</p>
+      <ul className="claims">
+        <li><strong>In-band (uncertain).</strong> Escalate only the cropped ROI to Qwen3-VL. Zero raw frames, zero PII.</li>
+        <li><strong>Out-of-band (confident).</strong> Decide locally in milliseconds. No cloud call.</li>
+        <li><strong>Offline and in-band.</strong> Reject conservatively and queue to the outbox; the line never stalls.</li>
+        <li><strong>Reconnect.</strong> The outbox drains concurrently and the cloud verdict back-fills the record.</li>
+      </ul>
     </section>
   )
 }
 
-function IdeaCard({ tone, head, body }: { tone: string; head: string; body: string }) {
+function Method() {
   return (
-    <div className={`idea-card tone-${tone}`}>
-      <h3>{head}</h3>
-      <p>{body}</p>
-    </div>
-  )
-}
-
-function HowItWorks() {
-  return (
-    <section id="how">
-      <div className="wrap">
-        <p className="eyebrow">How it works</p>
-        <h2 className="section-title">A thin loop, all policy in one place</h2>
-        <p className="section-lead">
-          Every frame runs the same path. The router holds the entire decision, so perception,
-          privacy, and actuation stay simple and swappable.
-        </p>
-        <ol className="pipeline">
-          {PIPELINE.map((s, i) => (
-            <li key={s.key} className="pipe-step">
-              <span className="pipe-num mono">{String(i + 1).padStart(2, '0')}</span>
-              <div>
-                <h3 className="pipe-name">{s.name}</h3>
-                <p className="pipe-detail">{s.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
+    <section className="col" id="how">
+      <h2 className="sec-head"><span className="sec-num">2</span> Method</h2>
+      <p>
+        Every frame follows one path; all policy lives in the router, so perception, privacy,
+        and actuation stay simple and swappable behind a common interface.
+      </p>
+      <ol className="pipeline">
+        {PIPELINE.map((s, i) => (
+          <li key={s.key} className="pipe-step">
+            <span className="pipe-num mono">{i + 1}</span>
+            <div>
+              <span className="pipe-name">{s.name}.</span>{' '}
+              <span className="pipe-detail">{s.detail}</span>
+            </div>
+          </li>
+        ))}
+      </ol>
     </section>
   )
 }
 
-function Interactive() {
+function BandFigure() {
   return (
-    <section id="band">
-      <div className="wrap">
-        <p className="eyebrow">Signature · interactive</p>
-        <h2 className="section-title">The gate is derived from the costs</h2>
-        <p className="section-lead">
-          This is the whole thesis in one control. The escalate zone is computed live from the
-          four costs below, exactly as <code>edge/router.py</code> does it. Move a cost and
-          watch which parts pass locally, escalate, or reject.
-        </p>
-        <BandWidget />
-      </div>
+    <section className="col-wide figure" id="band">
+      <BandWidget />
+      <p className="caption">
+        <strong>Figure 1 (interactive).</strong> The escalation band derived from the four
+        operating costs, computed live exactly as <code>edge/router.py</code> does. Drag a cost
+        to reshape the band and watch which parts pass locally, escalate, or reject. Raising the
+        price of a missed defect widens the band; raising the cloud toll narrows it.
+      </p>
     </section>
   )
+}
+
+function PlaygroundFigure() {
+  return <Playground />
 }
 
 function Results() {
   return (
-    <section id="results">
-      <div className="wrap">
-        <p className="eyebrow">Results · real MVTec data</p>
-        <h2 className="section-title">Cloud accuracy at a fraction of the cost</h2>
-        <p className="section-lead">
+    <section className="col-wide" id="results">
+      <div className="col-inner">
+        <h2 className="sec-head"><span className="sec-num">4</span> Results on real MVTec data</h2>
+        <p>
           Local <code>p</code> comes from the trained ONNX classifier over held-out eval images
-          disjoint from training and calibration. Hybrid keeps recall within a whisker of
-          cloud-everything while escalating only the uncertain band.
+          disjoint from training and calibration. The hybrid stays within a whisker of
+          cloud-only accuracy while escalating only the uncertain band.
         </p>
+      </div>
 
-        <div className="chart-row">
-          <div className="chart-card">
-            <h3 className="chart-title">Recall vs. cloud cost per 1k items (bottle)</h3>
-            <CostChart />
-          </div>
-          <div className="chart-card">
-            <h3 className="chart-title">Hybrid recall across 6 categories</h3>
-            <RobustnessChart />
-          </div>
-        </div>
+      <div className="fig-row">
+        <figure className="fig-cell">
+          <CostChart />
+          <figcaption className="caption">
+            <strong>Figure 2.</strong> Cost-weighted recall versus cloud cost per 1k items
+            (bottle). Hybrid sits near cloud-only accuracy at a fraction of the cost.
+          </figcaption>
+        </figure>
+        <figure className="fig-cell">
+          <RobustnessChart />
+          <figcaption className="caption">
+            <strong>Figure 3.</strong> Hybrid recall across six categories, mean 0.969 ± 0.015.
+            Local-only in grey; hybrid in colour.
+          </figcaption>
+        </figure>
+      </div>
 
-        <div className="table-scroll">
-          <table className="data-table">
+      <div className="col-inner">
+        <div className="table-wrap">
+          <table className="paper-table">
+            <caption><strong>Table 1.</strong> Accuracy, latency, and cost by condition (bottle).</caption>
             <thead>
               <tr>
-                <th>Condition</th>
-                <th>Cost-weighted recall</th>
-                <th>p50 / p99 (ms)</th>
-                <th>Bytes to cloud</th>
-                <th>Cost / 1k</th>
-                <th>PII</th>
+                <th>Condition</th><th>Cost-weighted recall</th><th>p50 / p99 (ms)</th>
+                <th>Bytes to cloud</th><th>Cost / 1k</th><th>PII</th>
               </tr>
             </thead>
             <tbody>
@@ -226,7 +192,7 @@ function Results() {
                   <td className="mono">
                     {r.recall === null ? '—' : r.recall.toFixed(3)}
                     {r.recallLo !== undefined && r.recallLo !== r.recallHi && (
-                      <span className="ci"> [{r.recallLo.toFixed(3)}–{r.recallHi!.toFixed(3)}]</span>
+                      <span className="ci"> [{r.recallLo.toFixed(3)}, {r.recallHi!.toFixed(3)}]</span>
                     )}
                   </td>
                   <td className="mono">{r.p50 === null ? '—' : `${r.p50} / ${r.p99}`}</td>
@@ -238,16 +204,12 @@ function Results() {
             </tbody>
           </table>
         </div>
-
-        <div className="callout">
-          <span className="callout-k mono">Live cloud, measured</span>
-          <p>
-            {LIVE_CLOUD.calls} real Qwen-VL calls on bottle ROIs: accuracy{' '}
-            <b>{LIVE_CLOUD.accuracy.toFixed(1)}</b>, latency p50/p99{' '}
-            <b className="mono">{LIVE_CLOUD.p50ms}/{LIVE_CLOUD.p99ms} ms</b>. That multi-second
-            p99 is exactly why escalating only the uncertain band, not every item, matters.
-          </p>
-        </div>
+        <p className="footnote">
+          Live cloud, measured on {LIVE_CLOUD.calls} real Qwen3-VL calls on bottle ROIs:
+          accuracy {LIVE_CLOUD.accuracy.toFixed(1)}, latency p50/p99{' '}
+          <span className="mono">{LIVE_CLOUD.p50ms}/{LIVE_CLOUD.p99ms} ms</span>. The multi-second
+          p99 is precisely why escalating only the uncertain band, not every item, matters.
+        </p>
       </div>
     </section>
   )
@@ -255,146 +217,101 @@ function Results() {
 
 function Ablation() {
   return (
-    <section id="ablation">
-      <div className="wrap">
-        <p className="eyebrow">Ablation · backbone swap</p>
-        <h2 className="section-title">The router absorbs local-model variance</h2>
-        <p className="section-lead">
-          Swap the frozen feature backbone across a weak (hand-crafted), medium (ImageNet
-          MobileNetV2), and SOTA self-supervised (DINOv2) extractor, with the router, privacy
-          filter, and outbox untouched. The local model swings a lot; the hybrid barely moves.
-        </p>
-        <div className="delta-cards">
-          <div className="delta-card">
-            <div className="delta-head">Local-only recall spread</div>
-            <div className="delta-range mono">up to {ABLATION_DELTAS.localSpread.toFixed(3)}</div>
-            <p>The backbone choice matters a lot when the local model decides alone: DINOv2 lifts hard textures, hand-crafted lags.</p>
-          </div>
-          <div className="delta-card delta-hl">
-            <div className="delta-head">Hybrid recall spread</div>
-            <div className="delta-range mono">at most {ABLATION_DELTAS.hybridSpread.toFixed(3)}</div>
-            <p>
-              The router more than halves the backbone-induced variance. It escalates whatever
-              the local model is unsure about, regardless of why, so orchestration, not the
-              choice of backbone, carries the accuracy.
-            </p>
-          </div>
+    <section className="col" id="ablation">
+      <h2 className="sec-head"><span className="sec-num">6</span> Ablation: the router absorbs backbone variance</h2>
+      <p>
+        We swap the frozen feature backbone across a weak (hand-crafted), medium (ImageNet
+        MobileNetV2), and SOTA self-supervised (DINOv2) extractor, holding the router, privacy
+        filter, and outbox fixed. Local-only recall swings widely; hybrid recall stays tight.
+      </p>
+      <div className="two-stat">
+        <div className="stat-block">
+          <div className="stat-num mono">≤ {ABLATION_DELTAS.localSpread.toFixed(3)}</div>
+          <div className="stat-cap">local-only recall spread across backbones</div>
+        </div>
+        <div className="stat-block hl">
+          <div className="stat-num mono">≤ {ABLATION_DELTAS.hybridSpread.toFixed(3)}</div>
+          <div className="stat-cap">hybrid recall spread — the router more than halves it</div>
         </div>
       </div>
+      <p className="footnote">
+        The router escalates whatever the local model is unsure about regardless of why, so the
+        orchestration, not the choice of backbone, carries the accuracy.
+      </p>
     </section>
   )
 }
 
-function Offline() {
-  const beats = [
-    { k: 'full', label: 'Full link', body: 'Confident parts decide locally; the uncertain band escalates to Qwen-VL.' },
-    { k: 'cut', label: 'Network cut', body: 'In-band items reject conservatively and queue to the outbox. The line never stalls.' },
-    { k: 'back', label: 'Reconnect', body: 'The outbox drains in parallel and the late cloud verdict back-fills the log.' },
-  ]
+function Robustness() {
   return (
-    <section id="offline">
-      <div className="wrap">
-        <p className="eyebrow">Graceful degradation</p>
-        <h2 className="section-title">It keeps working when the cloud is gone</h2>
-        <p className="section-lead">
-          The network tier is measured, not assumed. When the probe fails, the same loop falls
-          back to a safe local action and defers the diagnosis instead of blocking.
-        </p>
-        <div className="timeline">
-          {beats.map((b, i) => (
-            <div key={b.k} className={`tl-node tl-${b.k}`}>
-              <div className="tl-dot" />
-              <div className="tl-label mono">{i + 1} · {b.label}</div>
-              <p className="tl-body">{b.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function Privacy() {
-  return (
-    <section id="privacy">
-      <div className="wrap">
-        <p className="eyebrow">Privacy accounting</p>
-        <h2 className="section-title">Zero PII egress, and it is measurable</h2>
-        <p className="section-lead">
-          Every byte that crosses the device boundary is logged against its event, so the
-          privacy claim is a number in the audit log, not a promise.
-        </p>
-        <div className="privacy-grid">
-          <div className="priv-col priv-stays">
-            <h3>Never leaves the device</h3>
-            <ul>
-              <li>Raw camera frames</li>
-              <li>Skin-tone regions (blurred via HSV mask before encoding)</li>
-              <li>Any recoverable biometric</li>
-            </ul>
-          </div>
-          <div className="priv-col priv-crosses">
-            <h3>Crosses only on escalation</h3>
-            <ul>
-              <li>The cropped ROI, or an abstracted embedding</li>
-              <li>A non-PII context label (part category)</li>
-              <li>Logged, byte-counted, PII count pinned at 0</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function GetStarted() {
-  return (
-    <section id="start">
-      <div className="wrap">
-        <p className="eyebrow">Get started</p>
-        <h2 className="section-title">Run the real pipeline in three ways</h2>
-        <p className="section-lead">
-          <code>camera</code> and <code>data</code> run the same real pipeline and differ only
-          in where frames come from. <code>demo</code> is a deterministic scripted walkthrough
-          for a quick look, with no camera or cloud key required.
-        </p>
-        <pre className="code-block"><code>{`# 3.11 recommended
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pytest tests/ -q                         # 168 tests
-
-# real device or a phone streaming over wifi (falls back to data/ if no camera)
-python -m edge.app camera --camera http://<phone-ip>:8080/video
-
-# replay a folder through the real pipeline
-python -m edge.app data --category bottle --limit 20
-
-# scripted walkthrough, no hardware needed
-python -m edge.app demo`}</code></pre>
-        <p className="reproduce">
-          Reproduce every number above with{' '}
-          <code>python -m eval.run_real_eval</code> and{' '}
-          <code>python -m eval.run_multi_category</code>.
-        </p>
-      </div>
-    </section>
-  )
-}
-
-function Footer() {
-  return (
-    <footer className="footer">
-      <div className="wrap footer-inner">
+    <section className="col" id="robustness">
+      <h2 className="sec-head"><span className="sec-num">7</span> Graceful degradation and privacy</h2>
+      <div className="two-col">
         <div>
-          <div className="brand"><span className="brand-mark" aria-hidden="true" />Tollgate</div>
-          <p className="footer-tag">Edge inspection that routes by cost, not confidence.</p>
+          <h3 className="sub-head">Offline resilience</h3>
+          <p>
+            The network tier is measured, not assumed. When the probe fails, the same loop
+            falls back to a safe local action and defers the diagnosis to the outbox rather than
+            blocking. On reconnect the outbox drains in parallel and the late cloud verdict
+            back-fills the log, so the line never stalls.
+          </p>
         </div>
-        <div className="footer-links">
-          <a href={LINKS.repo}>GitHub repository</a>
-          <a href={LINKS.video}>Demo video</a>
-          <span className="footer-meta">Qwen-VL · Alibaba Cloud · MVTec AD</span>
+        <div>
+          <h3 className="sub-head">Measurable privacy</h3>
+          <p>
+            Every byte crossing the device boundary is logged against its event. Raw frames,
+            skin-tone regions (blurred by an HSV mask before encoding), and recoverable
+            biometrics never leave; only the cropped ROI or an abstracted embedding crosses, and
+            the PII byte count is pinned at zero, a number in the audit log rather than a promise.
+          </p>
         </div>
       </div>
+    </section>
+  )
+}
+
+function LiveDiagnoseFigure() {
+  return <LiveDiagnose />
+}
+
+function Reproduce() {
+  return (
+    <section className="col" id="start">
+      <h2 className="sec-head"><span className="sec-num">8</span> Reproducibility</h2>
+      <p>
+        <code>camera</code> and <code>data</code> run the same real pipeline and differ only in
+        the frame source; <code>demo</code> is a deterministic scripted walkthrough.
+      </p>
+      <pre className="code-block"><code>{`python3.11 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pytest tests/ -q                              # 172 tests
+
+python -m edge.app camera --camera http://<phone-ip>:8080/video
+python -m edge.app data   --category bottle --limit 20
+python -m edge.app demo
+
+# reproduce the tables
+python -m eval.run_real_eval
+python -m eval.run_multi_category
+python -m eval.run_loco   --data <loco>   --real-cloud
+python -m eval.run_3d     --data <3d-ad>  --real-cloud`}</code></pre>
+    </section>
+  )
+}
+
+function References() {
+  return (
+    <footer className="col references" id="refs">
+      <h2 className="sec-head">References &amp; artifacts</h2>
+      <ol className="ref-list">
+        <li>Bergmann et al. <em>MVTec AD</em> and <em>MVTec LOCO AD</em>, and <em>MVTec 3D-AD</em>. CC BY-NC-SA.</li>
+        <li>Oquab et al. <em>DINOv2: Learning Robust Visual Features without Supervision.</em> 2023.</li>
+        <li>Qi et al. <em>PointNet: Deep Learning on Point Sets.</em> CVPR 2017.</li>
+        <li>Reasoning tier: Qwen3-VL via Alibaba Cloud DashScope, served from a Docker container on Alibaba SAS.</li>
+      </ol>
+      <p className="colophon">
+        <a href={LINKS.repo}>Source code</a> · Qwen3-VL · Alibaba Cloud · Evaluated on Penn State ROAR.
+      </p>
     </footer>
   )
 }

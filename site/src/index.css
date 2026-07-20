@@ -1,38 +1,51 @@
-/* Tollgate — design tokens.
-   Palette encodes the three routing DECISIONS, so color means state, not decoration:
-   pass = signal green, escalate/toll = amber, reject = clay-red. Base is cool graphite
-   (industrial control room), not the cream-serif or acid-green AI defaults. */
+/* Tollgate — research paper-page.
+   Near-monochrome academic palette on a cool page white; the scholarly blue is used only for
+   links and figure accents, and the decision colours (pass/toll/reject) are confined to
+   charts. Serif for reading text (the paper feel), mono for data/equations/code. Avoids both
+   the startup-landing look and the AI cream+terracotta / dark+acid-green defaults. */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  --ink: #0b0e13;
-  --panel: #12171f;
-  --panel-2: #171d27;
-  --line: #232c39;
-  --line-2: #2f3a4a;
-  --text: #e6edf3;
-  --text-dim: #9aa7b8;
-  --text-faint: #67748a;
+  --paper: #fbfbfc;
+  --panel: #f3f4f6;
+  --panel-2: #eceef1;
+  --line: #e0e2e7;
+  --line-2: #cfd2d9;
+  --ink: #16181d;
+  --text: #2a2e37;
+  --muted: #5b6270;
+  --faint: #8b91a0;
 
-  --pass: #4cc38a;      /* out-of-band low: confident PASS */
-  --toll: #e3a008;      /* in-band: escalate, pay the cloud toll */
-  --reject: #f26d6d;    /* out-of-band high / conservative REJECT */
-  --accent: #6cb6ff;    /* links, focus, the reasoning tier */
-  --accent-dim: #3d6ea5;
+  --link: #2f5fd0;          /* scholarly blue, links + figure accents only */
+  --link-dim: #6f8fdd;
 
-  --grad-toll: linear-gradient(90deg, #e3a008 0%, #f2933d 100%);
+  /* decision colours: charts/figures ONLY */
+  --pass: #2f8f5b;
+  --toll: #b8791b;
+  --reject: #c0392b;
 
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --sans: 'Inter', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-  --maxw: 1080px;
-  --radius: 10px;
+  --measure: 720px;   /* reading column */
+  --wide: 968px;      /* figures may break wider */
+  --radius: 4px;
+
+  /* compatibility aliases so the figure widgets (band, playground, modalities) inherit the
+     paper palette without touching their CSS. Old names -> new tokens. */
+  --text-dim: var(--muted);
+  --text-faint: var(--faint);
+  --accent: var(--link);
+  --accent-dim: var(--link-dim);
+  --grad-toll: linear-gradient(90deg, var(--toll), color-mix(in srgb, var(--toll) 70%, #d89b3a));
+  --font-body: var(--serif);
+  --font-display: var(--serif);
+  --font-mono: var(--mono);
 }
 
 * { box-sizing: border-box; }
-
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -41,70 +54,53 @@ html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
-  background: var(--ink);
+  background: var(--paper);
   color: var(--text);
-  font-family: var(--font-body);
-  font-size: 16px;
-  line-height: 1.6;
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.62;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Faint engineering grid, like graph paper on a control panel. */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 44px 44px;
-  opacity: 0.14;
-  pointer-events: none;
-  z-index: 0;
-  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 100%);
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 100%);
-}
-
-a { color: var(--accent); text-decoration: none; }
+a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-h1, h2, h3 {
-  font-family: var(--font-display);
+h1, h2, h3, h4 {
+  font-family: var(--serif);
+  color: var(--ink);
+  line-height: 1.2;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
   margin: 0;
 }
 
-code, kbd, .mono { font-family: var(--font-mono); }
+code, kbd, .mono { font-family: var(--mono); }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 3px;
+/* reading column + wider figure breakout */
+.col { max-width: var(--measure); margin: 0 auto; padding: 0 28px; }
+.col-wide { max-width: var(--wide); margin: 0 auto; padding: 0 28px; }
+
+/* dark-mode: keep the paper look but invert to a calm dark neutral */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14161a; --panel: #1b1e24; --panel-2: #21252c;
+    --line: #2a2f38; --line-2: #3a404b;
+    --ink: #eef0f4; --text: #d3d7df; --muted: #9aa1b0; --faint: #6b7280;
+    --link: #7aa2f0; --link-dim: #5f7fc8;
+    --pass: #4cc38a; --toll: #e0a53a; --reject: #e06b5c;
+  }
 }
-
-.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
-
-.eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+:root[data-theme='dark'] {
+  --paper: #14161a; --panel: #1b1e24; --panel-2: #21252c;
+  --line: #2a2f38; --line-2: #3a404b;
+  --ink: #eef0f4; --text: #d3d7df; --muted: #9aa1b0; --faint: #6b7280;
+  --link: #7aa2f0; --link-dim: #5f7fc8;
+  --pass: #4cc38a; --toll: #e0a53a; --reject: #e06b5c;
 }
-.eyebrow::before {
-  content: '';
-  width: 22px;
-  height: 1px;
-  background: var(--line-2);
+:root[data-theme='light'] {
+  --paper: #fbfbfc; --panel: #f3f4f6; --panel-2: #eceef1;
+  --line: #e0e2e7; --line-2: #cfd2d9;
+  --ink: #16181d; --text: #2a2e37; --muted: #5b6270; --faint: #8b91a0;
+  --link: #2f5fd0; --pass: #2f8f5b; --toll: #b8791b; --reject: #c0392b;
 }
-
-section { padding: 96px 0; position: relative; }
-section + section { border-top: 1px solid var(--line); }
-
-.section-title { font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 14px 0 10px; }
-.section-lead { color: var(--text-dim); max-width: 62ch; font-size: 1.05rem; }

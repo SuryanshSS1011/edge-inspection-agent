@@ -14,15 +14,25 @@ import {
 } from 'recharts'
 import { CATEGORIES } from './data'
 
-const AXIS = '#67748a'
-const GRID = '#232c39'
+// Read palette from CSS custom properties so charts match the paper theme (light/dark).
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+const AXIS = cssVar('--muted', '#5b6270')
+const GRID = cssVar('--line', '#e0e2e7')
+const C_HYBRID = cssVar('--toll', '#b8791b')
+const C_CLOUD = cssVar('--link', '#2f5fd0')
+const C_LOCAL = cssVar('--pass', '#2f8f5b')
+const C_BAR_LOCAL = cssVar('--line-2', '#cfd2d9')
 
 // Recall vs. cloud cost per 1k. The point of the chart: hybrid sits near cloud accuracy
 // but far left on cost. Bottle numbers from results_table_real.md.
 const COST_POINTS = [
-  { name: 'Cloud-everything', cost: 2000, recall: 0.998, fill: '#6cb6ff' },
-  { name: 'Hybrid (ours)', cost: 1148, recall: 0.988, fill: '#e3a008' },
-  { name: 'Local-only', cost: 0, recall: 0.908, fill: '#4cc38a' },
+  { name: 'Cloud-everything', cost: 2000, recall: 0.998, fill: C_CLOUD },
+  { name: 'Hybrid (ours)', cost: 1148, recall: 0.988, fill: C_HYBRID },
+  { name: 'Local-only', cost: 0, recall: 0.908, fill: C_LOCAL },
 ]
 
 export function CostChart() {
@@ -58,7 +68,7 @@ export function CostChart() {
           {COST_POINTS.map((p) => (
             <Cell key={p.name} fill={p.fill} />
           ))}
-          <LabelList dataKey="name" position="top" style={{ fill: '#9aa7b8', fontSize: 10 }} />
+          <LabelList dataKey="name" position="top" style={{ fill: AXIS, fontSize: 10 }} />
         </Scatter>
       </ScatterChart>
     </ResponsiveContainer>
@@ -91,22 +101,22 @@ export function RobustnessChart() {
           stroke={GRID}
           width={36}
         />
-        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={tooltipStyle}
+        <Tooltip cursor={{ fill: 'rgba(128,128,128,0.08)' }} contentStyle={tooltipStyle}
           formatter={(v) => `${v}%`} />
-        <ReferenceLine y={96.9} stroke="#e3a008" strokeDasharray="4 4"
-          label={{ value: 'mean 0.969', fill: '#e3a008', fontSize: 10, position: 'insideTopRight' }} />
-        <Bar dataKey="local" name="local-only" fill="#2f3a4a" radius={[3, 3, 0, 0]} />
-        <Bar dataKey="hybrid" name="hybrid" fill="#4cc38a" radius={[3, 3, 0, 0]} />
+        <ReferenceLine y={96.9} stroke={C_HYBRID} strokeDasharray="4 4"
+          label={{ value: 'mean 0.969', fill: C_HYBRID, fontSize: 10, position: 'insideTopRight' }} />
+        <Bar dataKey="local" name="local-only" fill={C_BAR_LOCAL} radius={[3, 3, 0, 0]} />
+        <Bar dataKey="hybrid" name="hybrid" fill={C_HYBRID} radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
 }
 
 const tooltipStyle = {
-  background: '#12171f',
-  border: '1px solid #2f3a4a',
-  borderRadius: 8,
-  color: '#e6edf3',
+  background: cssVar('--panel', '#f3f4f6'),
+  border: `1px solid ${cssVar('--line-2', '#cfd2d9')}`,
+  borderRadius: 4,
+  color: cssVar('--ink', '#16181d'),
   fontSize: 12,
   fontFamily: 'IBM Plex Mono',
 }

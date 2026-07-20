@@ -42,6 +42,10 @@ type Data = {
 
 type Net = 'full' | 'offline'
 type Stage = 'idle' | 'perceive' | 'route' | 'privacy' | 'cloud' | 'act' | 'done'
+// The escalation branch is now a live state machine, not a pre-baked record. An in-band part
+// reaches 'reason' and then follows the CURRENT network: online resolves to a verdict; offline
+// parks in the outbox; flipping back online mid-park drains it and back-fills the verdict.
+type CloudState = 'idle' | 'pending' | 'resolved' | 'queued' | 'draining' | 'reconciled'
 
 const STAGES: { key: Stage; label: string; num: string }[] = [
   { key: 'perceive', label: 'Perceive', num: '01' },
@@ -59,8 +63,11 @@ export default function Playground() {
   const [net, setNet] = useState<Net>('full')
   const [selected, setSelected] = useState<Run | null>(null)
   const [stage, setStage] = useState<Stage>('idle')
-  const [liveCloud, setLiveCloud] = useState<Cloud | 'pending' | null>(null)
+  const [cloudState, setCloudState] = useState<CloudState>('idle')
+  const [cloud, setCloud] = useState<Cloud>(null)
   const timers = useRef<number[]>([])
+  const netRef = useRef<Net>(net)
+  netRef.current = net
 
   useEffect(() => {
     fetch(base('playground/runs.json'))
@@ -70,52 +77,83 @@ export default function Playground() {
     return () => timers.current.forEach(clearTimeout)
   }, [])
 
-  const modeRun = useMemo<ModeRun | null>(
-    () => (selected ? selected[net] : null),
-    [selected, net],
-  )
+  // The edge decision (p, routing, bytes/PII) is identical regardless of the network, so it is
+  // replayed from the captured FULL record. The network only changes the escalation branch.
+  const modeRun = useMemo<ModeRun | null>(() => (selected ? selected.full : null), [selected])
 
   function run(part: Run) {
     timers.current.forEach(clearTimeout)
     timers.current = []
     setSelected(part)
-    setLiveCloud(null)
+    setCloud(null)
+    setCloudState('idle')
     setStage('idle')
-    const mr = part[net]
-    // Advance the pipeline stages with small delays so the flow is legible.
+    const mr = part.full
     const seq: Stage[] = ['perceive', 'route']
     if (mr.in_band) seq.push('privacy', 'cloud')
     seq.push('act', 'done')
     seq.forEach((s, i) => {
       const t = window.setTimeout(() => {
         setStage(s)
-        if (s === 'cloud' && net === 'full') triggerLiveCloud(part)
-      }, 600 * (i + 1))
+        if (s === 'cloud') enterReason(part) // resolve against the live network at this moment
+      }, 650 * (i + 1))
       timers.current.push(t)
     })
   }
 
-  async function triggerLiveCloud(part: Run) {
-    // On escalation in FULL mode, actually call the deployed reasoner. Fall back to the
-    // captured verdict if the endpoint is not configured or unreachable.
+  // Reached the escalation point. Branch on the CURRENT network, read live so a cut that
+  // happened during the earlier stages is honored.
+  function enterReason(part: Run) {
+    if (netRef.current === 'offline') {
+      setCloudState('queued') // park in the outbox; the run stays here until reconnect
+    } else {
+      resolveCloud(part)
+    }
+  }
+
+  async function resolveCloud(part: Run) {
     const captured = part.full.cloud ?? null
     if (!DIAGNOSE_URL) {
-      setLiveCloud(captured)
+      setCloud(captured)
+      setCloudState('resolved')
       return
     }
-    setLiveCloud('pending')
+    setCloudState('pending')
     try {
-      const img = await fetch(base(part.image))
-        .then((r) => r.blob())
-        .then(blobToB64)
+      const img = await fetch(base(part.image)).then((r) => r.blob()).then(blobToB64)
       const res = await fetch(`${DIAGNOSE_URL}/diagnose`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roi_png_b64: img, context: { category: part.key } }),
       })
-      setLiveCloud(res.ok ? await res.json() : captured)
+      setCloud(res.ok ? await res.json() : captured)
     } catch {
-      setLiveCloud(captured) // endpoint down: show the real captured verdict, labeled
+      setCloud(captured) // endpoint down: fall back to the real captured verdict
+    }
+    setCloudState('resolved')
+  }
+
+  // Live network toggle. This is the demonstrable cut: it does not restart the run, it acts on
+  // the escalation branch in flight. Cutting the line while a call is queued keeps it queued;
+  // restoring the line drains the outbox and reconciles the deferred verdict.
+  function toggleNet(n: Net) {
+    setNet(n)
+    netRef.current = n
+    if (!selected) return
+    if (n === 'offline') {
+      // A cut during a live call reverts that escalation to the queued (deferred) state.
+      if (cloudState === 'pending' || cloudState === 'resolved') {
+        setCloud(null)
+        setCloudState('queued')
+      }
+    } else if (n === 'full' && cloudState === 'queued') {
+      // Reconnect: drain the outbox and back-fill the reconciled verdict.
+      setCloudState('draining')
+      const t = window.setTimeout(() => {
+        setCloud(selected.offline.reconciled ?? selected.full.cloud ?? null)
+        setCloudState('reconciled')
+      }, 900)
+      timers.current.push(t)
     }
   }
 
@@ -131,8 +169,8 @@ export default function Playground() {
     return <section id="playground" className="col"><p className="pg-note">Loading playground…</p></section>
   }
 
-  const cloudShown = liveCloud === 'pending' ? null : (liveCloud ?? modeRun?.cloud ?? null)
-  const usedLive = DIAGNOSE_URL && liveCloud && liveCloud !== 'pending'
+  const usedLive = !!(DIAGNOSE_URL && cloudState === 'resolved' && cloud)
+  const queued = cloudState === 'queued' || cloudState === 'draining'
 
   return (
     <section id="playground" className="col-wide">
@@ -142,7 +180,8 @@ export default function Playground() {
           Pick a part and watch it flow through the real pipeline. The edge decision (local{' '}
           <code>p</code>, routing, byte and PII counts) is <strong>replayed from a real
           captured run</strong>; on escalation the cloud reasoning is a <strong>live call</strong>{' '}
-          to the deployed Qwen3-VL server. Flip the network to see it keep working offline.
+          to the deployed Qwen3-VL server. Cut the network mid-run to watch an escalation defer
+          to the outbox, then restore it to watch the queue drain and reconcile.
         </p>
 
         <div className="pg-controls">
@@ -164,7 +203,7 @@ export default function Playground() {
               <button
                 key={n}
                 className={`pg-net-btn ${net === n ? 'is-on' : ''} pg-net-${n}`}
-                onClick={() => { setNet(n); if (selected) run({ ...selected }) }}
+                onClick={() => toggleNet(n)}
               >
                 {n === 'full' ? 'FULL' : 'OFFLINE'}
               </button>
@@ -180,30 +219,31 @@ export default function Playground() {
             <ol className="pg-pipeline">
               {STAGES.map((s) => {
                 const shown = isStageShown(s.key, modeRun)
-                const active = stage === s.key
-                const done = stageIdx(stage) > stageIdx(s.key) || stage === 'done'
+                const active = stage === s.key || (s.key === 'cloud' && queued)
+                const done = (stageIdx(stage) > stageIdx(s.key) || stage === 'done') && !(s.key === 'cloud' && queued)
                 return (
-                  <li key={s.key} className={`pg-step ${active ? 'active' : ''} ${done && shown ? 'done' : ''} ${!shown ? 'skipped' : ''}`}>
+                  <li key={s.key} className={`pg-step ${active ? 'active' : ''} ${done && shown ? 'done' : ''} ${!shown ? 'skipped' : ''} ${s.key === 'cloud' && queued ? 'queued' : ''}`}>
                     <span className="pg-step-num mono">{s.num}</span>
                     <span className="pg-step-label">{s.label}</span>
                     <span className="pg-step-detail mono">
-                      {stageDetail(s.key, modeRun, cloudShown, liveCloud === 'pending')}
+                      {stageDetail(s.key, modeRun, cloud, cloudState)}
                     </span>
                   </li>
                 )
               })}
             </ol>
             {(stage === 'done' || stage === 'act') && (
-              <Verdict modeRun={modeRun} net={net} cloud={cloudShown} usedLive={!!usedLive} />
+              <Verdict modeRun={modeRun} cloud={cloud} cloudState={cloudState} usedLive={usedLive} />
             )}
           </div>
         )}
       </div>
       <p className="caption">
-        <strong>Figure 4 (interactive).</strong> One part driven through the full pipeline. The
-        local decision and byte/PII counts are replayed from a real captured run; on escalation
-        the reasoning is a live Qwen3-VL call. Toggle the network to see uncertain items defer
-        to the outbox offline and reconcile on reconnect.
+        <strong>Figure 4 (interactive).</strong> One part driven through a single continuous
+        pipeline run. The local decision and byte/PII counts are replayed from a real captured
+        run; on escalation the reasoning is a live Qwen3-VL call. The network toggle is a live
+        cut on the same run: drop it while an item is uncertain and the escalation parks in the
+        outbox, restore it and the queue drains and the deferred verdict reconciles.
       </p>
     </section>
   )
@@ -215,11 +255,14 @@ function stageIdx(s: Stage): number {
 }
 
 function isStageShown(key: Stage, mr: ModeRun): boolean {
-  if (key === 'privacy' || key === 'cloud') return mr.in_band && mr.network === 'full'
+  // The privacy filter and cloud reasoning belong to the escalation branch. Whether the cloud
+  // is actually reached is now a live, network-dependent thing, so these stages are shown for
+  // any in-band part; the cloud step's detail reports what happened (called / queued / drained).
+  if (key === 'privacy' || key === 'cloud') return mr.in_band
   return true
 }
 
-function stageDetail(key: Stage, mr: ModeRun, cloud: Cloud, pending: boolean): string {
+function stageDetail(key: Stage, mr: ModeRun, cloud: Cloud, cs: CloudState): string {
   switch (key) {
     case 'perceive':
       return `p = ${mr.p.toFixed(3)}`
@@ -228,9 +271,14 @@ function stageDetail(key: Stage, mr: ModeRun, cloud: Cloud, pending: boolean): s
     case 'privacy':
       return `ROI · ${mr.bytes_to_cloud ?? 0} bytes · PII ${mr.pii_bytes ?? 0}`
     case 'cloud':
-      if (mr.network === 'offline') return 'unreachable → deferred'
-      if (pending) return 'calling qwen3-vl-plus…'
-      return cloud ? (cloud.defect_present ? `defect: ${cloud.defect_type}` : 'clean') : '—'
+      if (cs === 'queued') return 'unreachable → queued to outbox'
+      if (cs === 'draining') return 'reconnected → draining outbox…'
+      if (cs === 'pending') return 'calling qwen3-vl-plus…'
+      if (cs === 'reconciled')
+        return cloud ? `${cloud.defect_present ? `defect: ${cloud.defect_type}` : 'clean'} ✓ reconciled` : '✓ reconciled'
+      if (cs === 'resolved')
+        return cloud ? (cloud.defect_present ? `defect: ${cloud.defect_type}` : 'clean') : '—'
+      return '—'
     case 'act':
       return mr.action
     default:
@@ -254,24 +302,34 @@ function Band({ data, p, inBand, active }: { data: Data; p: number; inBand: bool
   )
 }
 
-function Verdict({ modeRun, net, cloud, usedLive }: { modeRun: ModeRun; net: Net; cloud: Cloud; usedLive: boolean }) {
-  if (net === 'offline' && modeRun.in_band) {
+function Verdict({ modeRun, cloud, cloudState, usedLive }: { modeRun: ModeRun; cloud: Cloud; cloudState: CloudState; usedLive: boolean }) {
+  // Escalation is parked in the outbox: the line has acted conservatively but the cloud verdict
+  // is still owed. This is the offline beat, live rather than pre-baked.
+  if (modeRun.in_band && (cloudState === 'queued' || cloudState === 'draining')) {
     return (
       <div className="pg-verdict pg-offline">
-        <div className="pg-verdict-head"><span className="pg-flag reject">DEFERRED</span></div>
-        <p>Offline and uncertain: the line rejects conservatively and queues the escalation to the outbox
-          (<span className="mono">{modeRun.outbox_state}</span>). On reconnect it drains and the cloud verdict
-          back-fills the record{modeRun.reconciled ? `: ${modeRun.reconciled.defect_type}` : ''}.</p>
+        <div className="pg-verdict-head">
+          <span className="pg-flag reject">{cloudState === 'draining' ? 'DRAINING' : 'DEFERRED'}</span>
+          <span className="pg-src mono">{cloudState === 'draining' ? 'reconnecting' : 'outbox: queued'}</span>
+        </div>
+        <p>
+          {cloudState === 'draining'
+            ? 'Network restored. The outbox is draining and the deferred escalation is being reconciled with the cloud.'
+            : 'Offline and uncertain: the line rejects conservatively and queues the escalation to the outbox. Flip the network back to FULL to drain it and back-fill the cloud verdict.'}
+        </p>
       </div>
     )
   }
+  const reconciled = cloudState === 'reconciled'
   const defect = cloud?.defect_present ?? modeRun.action === 'REJECT'
   return (
     <div className={`pg-verdict ${defect ? 'pg-defect' : 'pg-clean'}`}>
       <div className="pg-verdict-head">
         <span className={`pg-flag ${defect ? 'reject' : 'pass'}`}>{modeRun.action}</span>
         {modeRun.in_band && (
-          <span className="pg-src mono">{usedLive ? 'live qwen3-vl-plus' : 'captured verdict'}</span>
+          <span className="pg-src mono">
+            {reconciled ? 'reconciled from outbox' : usedLive ? 'live qwen3-vl-plus' : 'captured verdict'}
+          </span>
         )}
       </div>
       {cloud && (

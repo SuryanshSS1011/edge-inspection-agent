@@ -151,6 +151,18 @@
 .pg-step.active { opacity: 1; border-color: var(--toll); transform: translateX(4px); box-shadow: 0 0 0 1px var(--toll); }
 .pg-step.skipped { opacity: 0.25; }
 .pg-step.skipped .pg-step-detail::after { content: ' (skipped)'; color: var(--text-faint); }
+/* The escalation is parked in the outbox: dashed amber outline + slow pulse so it reads as
+   "waiting", distinct from the solid highlight of an actively-running stage. */
+.pg-step.queued {
+  opacity: 1;
+  border-style: dashed;
+  border-color: var(--reject);
+  box-shadow: 0 0 0 1px var(--reject);
+  animation: pg-pulse 1.4s ease-in-out infinite;
+}
+.pg-step.queued .pg-step-detail { color: var(--reject); }
+@keyframes pg-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .pg-step.queued { animation: none; } }
 .pg-step-num { font-family: var(--font-mono); color: var(--toll); font-size: 0.85rem; }
 .pg-step-label { font-family: var(--font-display); font-weight: 600; font-size: 0.98rem; }
 .pg-step-detail { font-size: 0.82rem; color: var(--text-dim); }

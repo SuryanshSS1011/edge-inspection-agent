@@ -142,17 +142,25 @@ def _analyze(items, category="", real_cloud=False):
                 ex.map(lambda pth: _cloud_says_defect(pth, category), escalated_defects)
             )
         hybrid += sum(1 for v in verdicts if v)
-    # The router's own competence, independent of the cloud model that follows it:
-    # of the defects, how many did it correctly route to the cloud rather than pass locally?
-    # This is the contribution Tollgate makes; the hybrid ceiling is the swappable cloud VLM.
-    esc_defect_recall = (len(escalated_defects) / len(defects)) if defects else None
+    # The router's own competence, independent of the cloud model that follows it.
+    # A defect the local model would MISS has p < pstar. Rescue rate: of those local
+    # misses, how many did the band correctly escalate? This is "the router catches what the
+    # local model can't", which is Tollgate's contribution; the hybrid ceiling is the
+    # swappable cloud VLM. Coverage: fraction of ALL defects caught either locally
+    # (p >= pstar) or by escalation, i.e. not lost (p < pstar AND not in_band).
+    local_misses = [(p, lbl, path) for p, lbl, path in defects if p < pstar]
+    rescued = sum(1 for p, _, _ in local_misses if in_band(p))
+    lost = sum(1 for p, _, _ in defects if p < pstar and not in_band(p))
+    rescue_rate = (rescued / len(local_misses)) if local_misses else None
+    coverage = (1.0 - lost / len(defects)) if defects else None
     esc_good_rate = (
         (sum(1 for p, _, _ in goods if in_band(p)) / len(goods)) if goods else None
     )
     return {
         "n": n,
         "escalation_rate": escalated / n if n else 0.0,
-        "esc_defect_recall": esc_defect_recall,
+        "rescue_rate": rescue_rate,
+        "coverage": coverage,
         "esc_good_rate": esc_good_rate,
         "local_recall": (local / len(defects)) if defects else None,
         "hybrid_recall": (hybrid / len(defects)) if (defects and real_cloud) else None,
@@ -181,11 +189,10 @@ def main() -> None:
         r = rows[cat]
         lr = "n/a" if r["local_recall"] is None else f"{r['local_recall']:.2f}"
         hr = "n/a" if r["hybrid_recall"] is None else f"{r['hybrid_recall']:.2f}"
-        edr = (
-            "n/a" if r["esc_defect_recall"] is None else f"{r['esc_defect_recall']:.2f}"
-        )
+        rr = "n/a" if r["rescue_rate"] is None else f"{r['rescue_rate']:.2f}"
+        cov = "n/a" if r["coverage"] is None else f"{r['coverage']:.2f}"
         print(
-            f"  n={r['n']} routed-defects={edr} escalated={r['escalation_rate']:.0%} "
+            f"  n={r['n']} rescue={rr} coverage={cov} escalated={r['escalation_rate']:.0%} "
             f"local={lr} hybrid={hr}"
         )
 
@@ -200,38 +207,42 @@ def _write(rows, backbone, out):
         "anomaly-score setup and the same cost router as every other experiment; only the "
         "dataset differs. Evaluated on the labeled test split.",
         "",
-        "The headline is the router column: of the defects the local model could not "
-        "resolve, how many did the cost band correctly route to the cloud. That is what "
-        "Tollgate contributes. The hybrid column then depends on the cloud VLM, which is "
-        "swappable; a stronger model lifts hybrid without changing the routing decision.",
+        "The headline is the rescue column: of the defects the local model would have "
+        "missed, how many the cost band correctly escalated to the cloud. That routing "
+        "decision is what Tollgate contributes, and it is what coverage (the fraction of all "
+        "defects caught either locally or by escalation) measures end to end. Hybrid recall "
+        "then depends on the cloud VLM, which is swappable; a stronger model lifts it without "
+        "changing the routing decision.",
         "",
-        "| Category | n | Routed defects | Escalation rate | Local recall | Hybrid recall |",
-        "|---|---|---|---|---|---|",
+        "| Category | n | Rescue rate | Coverage | Escalation rate | Local recall | Hybrid recall |",
+        "|---|---|---|---|---|---|---|",
     ]
-    lr_all, hr_all, esc_all, edr_all = [], [], [], []
+    lr_all, hr_all, esc_all, rr_all, cov_all = [], [], [], [], []
     for cat, r in rows.items():
         lr = "n/a" if r["local_recall"] is None else f"{r['local_recall']:.2f}"
         hr = "n/a" if r["hybrid_recall"] is None else f"{r['hybrid_recall']:.2f}"
-        edr = (
-            "n/a" if r["esc_defect_recall"] is None else f"{r['esc_defect_recall']:.2f}"
-        )
+        rr = "n/a" if r["rescue_rate"] is None else f"{r['rescue_rate']:.2f}"
+        cov = "n/a" if r["coverage"] is None else f"{r['coverage']:.2f}"
         lines.append(
-            f"| {cat} | {r['n']} | {edr} | {r['escalation_rate']:.0%} | {lr} | {hr} |"
+            f"| {cat} | {r['n']} | {rr} | {cov} | {r['escalation_rate']:.0%} | {lr} | {hr} |"
         )
         if r["local_recall"] is not None:
             lr_all.append(r["local_recall"])
             esc_all.append(r["escalation_rate"])
-            if r["esc_defect_recall"] is not None:
-                edr_all.append(r["esc_defect_recall"])
+            if r["rescue_rate"] is not None:
+                rr_all.append(r["rescue_rate"])
+            if r["coverage"] is not None:
+                cov_all.append(r["coverage"])
             if r["hybrid_recall"] is not None:
                 hr_all.append(r["hybrid_recall"])
     if lr_all:
         measured = len(hr_all) > 0
         agg = [
             "",
-            f"**Aggregate across {len(lr_all)} categories:** the router routes "
-            f"{np.mean(edr_all):.0%} of the defects the local model missed to the cloud "
-            f"(local-only recall {np.mean(lr_all):.2f}, escalation {np.mean(esc_all):.0%}).",
+            f"**Aggregate across {len(lr_all)} categories:** the router rescues "
+            f"{np.mean(rr_all):.0%} of the defects the local model would have missed, "
+            f"lifting defect coverage to {np.mean(cov_all):.0%} (local-only recall "
+            f"{np.mean(lr_all):.2f}, escalation {np.mean(esc_all):.0%}).",
         ]
         if measured:
             agg.append(

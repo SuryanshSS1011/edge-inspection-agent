@@ -131,9 +131,13 @@ def _analyze(items, category="", real_cloud=False):
     escalated_defects = [path for p, _, path in defects if in_band(p)]
     hybrid = sum(1 for p, _, _ in defects if not in_band(p) and p >= pstar)
     if real_cloud and escalated_defects:
+        import os
         from concurrent.futures import ThreadPoolExecutor
 
-        with ThreadPoolExecutor(max_workers=12) as ex:
+        # 12-way concurrency overwhelmed the single SAS container (sustained 502s under load);
+        # 6 keeps the box comfortable while the CloudClient's 3x 5xx retry mops up rare blips.
+        workers = int(os.environ.get("TOLLGATE_CLOUD_WORKERS", "6"))
+        with ThreadPoolExecutor(max_workers=workers) as ex:
             verdicts = list(
                 ex.map(lambda pth: _cloud_says_defect(pth, category), escalated_defects)
             )

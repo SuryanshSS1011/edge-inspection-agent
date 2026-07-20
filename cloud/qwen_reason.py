@@ -1,13 +1,16 @@
-"""Qwen-VL reasoning over an escalated ROI/embedding -> structured JSON (§3.4).
+"""Alibaba Cloud integration: Qwen3-VL reasoning via the DashScope API.
 
-Prompts Qwen-VL to return a strict schema and validates it server-side so the edge
-always receives well-formed output.
+This is the file that talks to Alibaba Cloud. It calls Qwen3-VL through DashScope's
+OpenAI-compatible endpoint (https://dashscope-intl.aliyuncs.com/compatible-mode/v1),
+authenticating with the DashScope API key and posting an escalated ROI plus a strict
+JSON schema, then validating the response server-side so the edge always receives
+well-formed output. Rate limits and 5xx from Alibaba are retried with exponential
+backoff and jitter.
 
-Transport: the Qwen Cloud API (DashScope) exposes an OpenAI-compatible endpoint, so
-this calls it over plain HTTP (no SDK dependency, keeping the cloud function small).
-Set these env vars in the deployment:
-    DASHSCOPE_API_KEY   - the Qwen Cloud API key (from the hackathon voucher)
-    QWEN_MODEL          - vision model id, defaults to "qwen3.7-plus"
+Transport is plain HTTP (no SDK dependency) so the cloud function stays small. Config
+via env vars in the deployment:
+    DASHSCOPE_API_KEY   - the Alibaba Cloud DashScope API key
+    QWEN_MODEL          - vision model id, defaults to "qwen3-vl-plus-2025-12-19"
     QWEN_BASE_URL       - defaults to the international DashScope compatible endpoint
 """
 

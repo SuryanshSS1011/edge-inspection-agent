@@ -49,6 +49,20 @@ demo/    scripted demo runner · network toggle · video script
 tests/   168 unit + integration tests
 ```
 
+## Alibaba Cloud deployment
+
+The reasoning tier runs on Alibaba Cloud and is called live from the project site.
+
+- **Alibaba Cloud API integration (proof):** [`cloud/qwen_reason.py`](cloud/qwen_reason.py) calls
+  Qwen3-VL through the DashScope OpenAI-compatible endpoint
+  (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`), with API-key auth and exponential
+  backoff on Alibaba rate limits. The MCP tool wrapper is [`cloud/mcp_server.py`](cloud/mcp_server.py)
+  and the HTTP server is [`cloud/handler.py`](cloud/handler.py).
+- **Deployed endpoint:** `https://tollgate.duckdns.org` on an Alibaba Cloud SAS instance
+  (Docker + Caddy auto-TLS). Health check: `GET /healthz` returns `{"ok": true}`; inference:
+  `POST /diagnose`.
+- **Model:** `qwen3-vl-plus-2025-12-19` via DashScope.
+
 ## Quickstart
 
 ```bash

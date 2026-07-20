@@ -91,23 +91,27 @@ export type AblationRow = {
   category: string
   localHand: number
   localMobile: number
+  localDino: number
   hybridHand: number
   hybridMobile: number
+  hybridDino: number
 }
 
-// backbone_ablation.md — same head, only the frozen backbone changes.
+// backbone_ablation.md — same head, only the frozen backbone changes across a weak
+// (handcrafted), medium (MobileNetV2), and SOTA (DINOv2) extractor. 6 categories.
 export const ABLATION: AblationRow[] = [
-  { category: 'bottle', localHand: 0.908, localMobile: 0.994, hybridHand: 0.988, hybridMobile: 1.0 },
-  { category: 'grid', localHand: 0.811, localMobile: 0.808, hybridHand: 0.939, hybridMobile: 0.916 },
-  { category: 'metal_nut', localHand: 0.951, localMobile: 0.92, hybridHand: 0.974, hybridMobile: 0.982 },
-  { category: 'screw', localHand: 0.873, localMobile: 0.888, hybridHand: 0.97, hybridMobile: 0.993 },
+  { category: 'bottle', localHand: 0.908, localMobile: 0.982, localDino: 0.988, hybridHand: 0.988, hybridMobile: 1.0, hybridDino: 1.0 },
+  { category: 'grid', localHand: 0.811, localMobile: 0.808, localDino: 0.993, hybridHand: 0.939, hybridMobile: 0.916, hybridDino: 1.0 },
+  { category: 'metal_nut', localHand: 0.951, localMobile: 0.92, localDino: 0.976, hybridHand: 0.974, hybridMobile: 0.982, hybridDino: 0.998 },
+  { category: 'screw', localHand: 0.873, localMobile: 0.888, localDino: 0.941, hybridHand: 0.97, hybridMobile: 0.993, hybridDino: 0.993 },
+  { category: 'cable', localHand: 0.883, localMobile: 0.874, localDino: 0.913, hybridHand: 0.963, hybridMobile: 0.945, hybridDino: 0.995 },
+  { category: 'capsule', localHand: 0.921, localMobile: 0.955, localDino: 0.906, hybridHand: 0.98, hybridMobile: 0.961, hybridDino: 0.994 },
 ]
 
+// Max spread of each metric across the three backbones, within a category.
 export const ABLATION_DELTAS = {
-  localMin: -0.031,
-  localMax: 0.086,
-  hybridMin: -0.024,
-  hybridMax: 0.023,
+  localSpread: 0.185,
+  hybridSpread: 0.084,
 } as const
 
 // MVTec LOCO — logical vs. structural anomalies. Unsupervised anomaly score (train on good

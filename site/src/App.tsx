@@ -260,27 +260,23 @@ function Ablation() {
         <p className="eyebrow">Ablation · backbone swap</p>
         <h2 className="section-title">The router absorbs local-model variance</h2>
         <p className="section-lead">
-          Swap the frozen feature backbone (hand-crafted features vs. an ImageNet MobileNetV2)
-          with the router, privacy filter, and outbox untouched. The local model swings a lot;
-          the hybrid barely moves.
+          Swap the frozen feature backbone across a weak (hand-crafted), medium (ImageNet
+          MobileNetV2), and SOTA self-supervised (DINOv2) extractor, with the router, privacy
+          filter, and outbox untouched. The local model swings a lot; the hybrid barely moves.
         </p>
         <div className="delta-cards">
           <div className="delta-card">
-            <div className="delta-head">Local-only Δ</div>
-            <div className="delta-range mono">
-              {ABLATION_DELTAS.localMin.toFixed(3)} … +{ABLATION_DELTAS.localMax.toFixed(3)}
-            </div>
-            <p>The backbone choice matters a lot when the local model decides alone.</p>
+            <div className="delta-head">Local-only recall spread</div>
+            <div className="delta-range mono">up to {ABLATION_DELTAS.localSpread.toFixed(3)}</div>
+            <p>The backbone choice matters a lot when the local model decides alone: DINOv2 lifts hard textures, hand-crafted lags.</p>
           </div>
           <div className="delta-card delta-hl">
-            <div className="delta-head">Hybrid Δ</div>
-            <div className="delta-range mono">
-              {ABLATION_DELTAS.hybridMin.toFixed(3)} … +{ABLATION_DELTAS.hybridMax.toFixed(3)}
-            </div>
+            <div className="delta-head">Hybrid recall spread</div>
+            <div className="delta-range mono">at most {ABLATION_DELTAS.hybridSpread.toFixed(3)}</div>
             <p>
-              Nearly flat and positive in most categories. The router escalates whatever the
-              local model is unsure about, regardless of why, so orchestration carries the
-              accuracy.
+              The router more than halves the backbone-induced variance. It escalates whatever
+              the local model is unsure about, regardless of why, so orchestration, not the
+              choice of backbone, carries the accuracy.
             </p>
           </div>
         </div>

@@ -37,7 +37,7 @@ Cloud latency measured live on 12 real Qwen-VL calls (100% accuracy). p99 is a s
 
 ## Stack
 
-- **Edge**: Python 3.11, ONNX (MobileNetV2), temperature-scaled logistic classifier, SQLite outbox
+- **Edge**: Python 3.11, ONNX (DINOv2 ViT-S/14 core; MobileNetV2 and handcrafted as ablation), temperature-scaled logistic classifier, SQLite outbox
 - **Cloud**: qwen3-vl-plus via DashScope, served over HTTP from a Docker container on Alibaba SAS
 - **Interface**: MCP stdio tool + HTTP (`/healthz`, `/diagnose`), same code path
 

@@ -23,7 +23,7 @@
 .links span { color: var(--faint); }
 
 /* ---- abstract ---- */
-.abstract { padding: 40px 28px; border-bottom: 1px solid var(--line); }
+.abstract { padding: 44px 28px 56px; }
 .ab-head {
   font-family: var(--sans);
   font-size: 0.8rem;
@@ -35,11 +35,22 @@
 .abstract p { margin: 0; font-size: 1.02rem; line-height: 1.7; }
 
 /* ---- sections ---- */
-/* Clear space before each section so a heading never crowds the previous block. Sections
-   don't add bottom padding (their content's last-child margin handles the gap), so the
-   space between sections is dominated by this generous top padding. */
-section { padding: 96px 0 8px; }
+/* Each section is bounded by a hairline delimiter with generous, symmetric space on both
+   sides of the rule, so sections read as distinct blocks rather than one continuous flow.
+   The rule is drawn centered at the reading-column width so it is consistent whether the
+   section is a narrow text column or a wide figure. */
+section { padding: 72px 0 64px; position: relative; }
 section:first-of-type { padding-top: 40px; }
+section + section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 56px);
+  max-width: var(--measure);
+  border-top: 1px solid var(--line-2);
+}
 .sec-head {
   font-size: 1.55rem;
   line-height: 1.25;
@@ -89,9 +100,8 @@ p { margin: 0 0 16px; }
 .pipe-detail { color: var(--text); }
 
 /* ---- figures ---- */
-/* figures have no heading, so they keep symmetric, moderate spacing (overriding the larger
-   pre-heading section padding). */
-.figure { padding: 48px 0; }
+/* figures have no heading; keep the same symmetric section spacing as text sections. */
+.figure { padding: 72px 0 64px; }
 .caption {
   font-family: var(--sans);
   font-size: 0.88rem;

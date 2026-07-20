@@ -78,9 +78,10 @@ h1, h2, h3, h4 {
 code, kbd, .mono { font-family: var(--mono); }
 :focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
 
-/* reading column + wider figure breakout */
-.col { max-width: var(--measure); margin: 0 auto; padding: 0 28px; }
-.col-wide { max-width: var(--wide); margin: 0 auto; padding: 0 28px; }
+/* reading column + wider figure breakout. Use side padding only, so a section's own vertical
+   padding is not clobbered by these classes. */
+.col { max-width: var(--measure); margin: 0 auto; padding-left: 28px; padding-right: 28px; }
+.col-wide { max-width: var(--wide); margin: 0 auto; padding-left: 28px; padding-right: 28px; }
 
 /* dark-mode: keep the paper look but invert to a calm dark neutral */
 @media (prefers-color-scheme: dark) {

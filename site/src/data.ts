@@ -59,33 +59,50 @@ export const LIVE_CLOUD = {
 
 export type CategoryRow = {
   category: string
+  dataset: 'AD' | 'AD2'
   n: number
-  eceBefore: number
-  eceAfter: number
+  escalation: number
   local: number
-  cloud: number
   hybrid: number
-  hybridLo: number
-  hybridHi: number
 }
 
-// Per-category recall on real MVTec AD with the DINOv2 backbone (our strongest frozen
-// extractor), from the backbone ablation. local = DINOv2 local-only, hybrid = with the router.
+// Per-category results on real MVTec AD (15) and MVTec AD 2 (8) with the DINOv2 backbone.
+// Unsupervised anomaly score (fit the normal distribution, calibrate to p), same cost router
+// everywhere. local = local-only recall, hybrid = MEASURED with real qwen3-vl-plus verdicts on
+// the escalated frames, escalation = fraction routed to the cloud. From eval/results_ad{,2}.md
+// (job 54345293, GPU DINOv2, parallel cloud, 0 failures).
 export const CATEGORIES: CategoryRow[] = [
-  { category: 'bottle', n: 61, eceBefore: 0.059, eceAfter: 0.05, local: 0.988, cloud: 0.997, hybrid: 1.0, hybridLo: 0.999, hybridHi: 1.0 },
-  { category: 'grid', n: 69, eceBefore: 0.222, eceAfter: 0.221, local: 0.993, cloud: 0.997, hybrid: 1.0, hybridLo: 0.999, hybridHi: 1.0 },
-  { category: 'metal_nut', n: 69, eceBefore: 0.167, eceAfter: 0.096, local: 0.976, cloud: 0.998, hybrid: 0.998, hybridLo: 0.994, hybridHi: 1.0 },
-  { category: 'screw', n: 98, eceBefore: 0.224, eceAfter: 0.214, local: 0.941, cloud: 0.963, hybrid: 0.993, hybridLo: 0.99, hybridHi: 0.995 },
-  { category: 'cable', n: 76, eceBefore: 0.163, eceAfter: 0.155, local: 0.913, cloud: 0.998, hybrid: 0.995, hybridLo: 0.992, hybridHi: 0.997 },
-  { category: 'capsule', n: 72, eceBefore: 0.147, eceAfter: 0.138, local: 0.906, cloud: 0.998, hybrid: 0.994, hybridLo: 0.991, hybridHi: 0.997 },
+  { category: 'bottle', dataset: 'AD', n: 42, escalation: 0.07, local: 1.0, hybrid: 1.0 },
+  { category: 'cable', dataset: 'AD', n: 75, escalation: 0.39, local: 0.89, hybrid: 0.96 },
+  { category: 'capsule', dataset: 'AD', n: 67, escalation: 0.45, local: 0.67, hybrid: 0.76 },
+  { category: 'carpet', dataset: 'AD', n: 59, escalation: 0.29, local: 0.89, hybrid: 0.89 },
+  { category: 'grid', dataset: 'AD', n: 40, escalation: 0.15, local: 0.9, hybrid: 0.97 },
+  { category: 'hazelnut', dataset: 'AD', n: 55, escalation: 0.33, local: 0.89, hybrid: 0.97 },
+  { category: 'leather', dataset: 'AD', n: 62, escalation: 0.02, local: 1.0, hybrid: 1.0 },
+  { category: 'metal_nut', dataset: 'AD', n: 58, escalation: 0.22, local: 0.89, hybrid: 0.91 },
+  { category: 'pill', dataset: 'AD', n: 84, escalation: 0.25, local: 0.85, hybrid: 0.97 },
+  { category: 'screw', dataset: 'AD', n: 81, escalation: 0.51, local: 0.62, hybrid: 0.77 },
+  { category: 'tile', dataset: 'AD', n: 59, escalation: 0.08, local: 0.98, hybrid: 1.0 },
+  { category: 'toothbrush', dataset: 'AD', n: 21, escalation: 0.24, local: 0.93, hybrid: 0.93 },
+  { category: 'transistor', dataset: 'AD', n: 50, escalation: 0.64, local: 0.8, hybrid: 0.95 },
+  { category: 'wood', dataset: 'AD', n: 40, escalation: 0.28, local: 0.9, hybrid: 1.0 },
+  { category: 'zipper', dataset: 'AD', n: 76, escalation: 0.16, local: 0.92, hybrid: 0.93 },
+  { category: 'can', dataset: 'AD2', n: 81, escalation: 0.8, local: 0.18, hybrid: 0.18 },
+  { category: 'fabric', dataset: 'AD2', n: 78, escalation: 0.88, local: 0.2, hybrid: 0.2 },
+  { category: 'fruit_jelly', dataset: 'AD2', n: 40, escalation: 0.25, local: 0.87, hybrid: 0.87 },
+  { category: 'rice', dataset: 'AD2', n: 66, escalation: 0.65, local: 0.33, hybrid: 0.33 },
+  { category: 'sheet_metal', dataset: 'AD2', n: 57, escalation: 0.58, local: 0.38, hybrid: 0.44 },
+  { category: 'vial', dataset: 'AD2', n: 71, escalation: 0.38, local: 0.75, hybrid: 0.79 },
+  { category: 'wallplugs', dataset: 'AD2', n: 75, escalation: 0.47, local: 0.53, hybrid: 0.53 },
+  { category: 'walnuts', dataset: 'AD2', n: 75, escalation: 0.67, local: 0.53, hybrid: 0.76 },
 ]
 
+// Split and pooled aggregates. r = Pearson correlation of local recall vs. escalation rate:
+// strongly negative means the router escalates in proportion to local uncertainty.
 export const AGGREGATE = {
-  hybridMean: 0.997,
-  hybridStd: 0.003,
-  localMean: 0.953,
-  lift: 0.044,
-  nCategories: 6,
+  ad: { local: 0.875, hybrid: 0.934, escalation: 0.272, r: -0.8, n: 15 },
+  ad2: { local: 0.471, hybrid: 0.512, escalation: 0.585, r: -0.94, n: 8 },
+  all: { local: 0.735, hybrid: 0.787, escalation: 0.381, r: -0.91, n: 23 },
 } as const
 
 export type AblationRow = {

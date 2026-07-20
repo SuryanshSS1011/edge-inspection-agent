@@ -1,10 +1,7 @@
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   LabelList,
-  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -12,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { CATEGORIES } from './data'
+import { AGGREGATE, CATEGORIES } from './data'
 
 // Read palette from CSS custom properties so charts match the paper theme (light/dark).
 function cssVar(name: string, fallback: string): string {
@@ -25,9 +22,6 @@ const GRID = cssVar('--line', '#e0e2e7')
 const C_HYBRID = cssVar('--toll', '#b8791b')
 const C_CLOUD = cssVar('--link', '#2f5fd0')
 const C_LOCAL = cssVar('--pass', '#2f8f5b')
-// A visible slate-blue for the local-only bar. The previous --line-2 gray sat almost on
-// top of the paper background, so both the column and its tooltip swatch disappeared.
-const C_BAR_LOCAL = cssVar('--link-dim', '#6f8fdd')
 
 // Recall vs. cloud cost per 1k. The point of the chart: hybrid sits near cloud accuracy
 // but far left on cost. Bottle numbers from results_table_real.md.
@@ -114,43 +108,87 @@ export function CostChart() {
   )
 }
 
-const ROBUST = CATEGORIES.map((c) => ({
-  category: c.category,
-  hybrid: Number((c.hybrid * 100).toFixed(1)),
-  local: Number((c.local * 100).toFixed(1)),
-}))
+// Figures 3a/3b show the router's core behaviour directly: escalation rate vs. local recall,
+// one point per category. The downward trend (AD r = -0.80, AD 2 r = -0.94) is the thesis: the
+// router escalates in proportion to how weak the local model is, spending cloud budget only
+// where it is needed. Split by dataset so each is legible: AD's easy parts sit high-right
+// (confident, quiet), AD 2's hard parts sit low-left (weak local, heavy escalation).
+type RoutePoint = { category: string; local: number; escalation: number }
 
-export function RobustnessChart() {
+const routePoints = (dataset: 'AD' | 'AD2'): RoutePoint[] =>
+  CATEGORIES.filter((c) => c.dataset === dataset).map((c) => ({
+    category: c.category,
+    local: Number((c.local * 100).toFixed(0)),
+    escalation: Number((c.escalation * 100).toFixed(0)),
+  }))
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function PointLabel(props: any) {
+  const x = Number(props.x ?? 0)
+  const y = Number(props.y ?? 0)
   return (
-    <ResponsiveContainer width="100%" height={268}>
-      <BarChart data={ROBUST} margin={{ top: 24, right: 12, bottom: 8, left: 4 }} barCategoryGap="24%">
-        <CartesianGrid stroke={GRID} strokeDasharray="2 4" vertical={false} />
+    <text
+      x={x + 9}
+      y={y + 3}
+      textAnchor="start"
+      style={{ fill: AXIS, fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+    >
+      {props.value}
+    </text>
+  )
+}
+
+function RoutingScatter({ dataset, fill }: { dataset: 'AD' | 'AD2'; fill: string }) {
+  const data = routePoints(dataset)
+  return (
+    <ResponsiveContainer width="100%" height={380}>
+      <ScatterChart margin={{ top: 20, right: 64, bottom: 46, left: 12 }}>
+        <CartesianGrid stroke={GRID} strokeDasharray="2 4" />
         <XAxis
-          dataKey="category"
-          tick={{ fill: AXIS, fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+          type="number"
+          dataKey="local"
+          name="local recall"
+          domain={[0, 100]}
+          ticks={[0, 25, 50, 75, 100]}
+          tick={{ fill: AXIS, fontSize: 12, fontFamily: 'IBM Plex Mono' }}
+          tickFormatter={(v) => `${v}%`}
+          label={{ value: 'local-only recall', position: 'insideBottom', offset: -24, fill: AXIS, fontSize: 12 }}
           stroke={GRID}
-          interval={0}
-          angle={-18}
-          textAnchor="end"
-          height={44}
         />
         <YAxis
-          domain={[80, 101]}
-          ticks={[80, 85, 90, 95, 100]}
-          tick={{ fill: AXIS, fontSize: 11, fontFamily: 'IBM Plex Mono' }}
+          type="number"
+          dataKey="escalation"
+          name="escalation"
+          domain={[0, 100]}
+          ticks={[0, 25, 50, 75, 100]}
+          tick={{ fill: AXIS, fontSize: 12, fontFamily: 'IBM Plex Mono' }}
+          tickFormatter={(v) => `${v}%`}
+          label={{ value: 'escalation rate', angle: -90, position: 'insideLeft', offset: 18, fill: AXIS, fontSize: 12 }}
           stroke={GRID}
-          width={36}
+          width={52}
         />
-        <Tooltip cursor={{ fill: 'rgba(128,128,128,0.08)' }} contentStyle={tooltipStyle}
-          formatter={(v) => `${v}%`} />
-        <ReferenceLine y={99.7} stroke={C_HYBRID} strokeDasharray="4 4"
-          label={{ value: 'mean 0.997', fill: C_HYBRID, fontSize: 10, position: 'insideTopRight', dy: -20, dx: 8 }} />
-        <Bar dataKey="local" name="local-only" fill={C_BAR_LOCAL} radius={[3, 3, 0, 0]} />
-        <Bar dataKey="hybrid" name="hybrid" fill={C_HYBRID} radius={[3, 3, 0, 0]} />
-      </BarChart>
+        <Tooltip
+          cursor={{ strokeDasharray: '3 3', stroke: AXIS }}
+          contentStyle={tooltipStyle}
+          itemStyle={tooltipItemStyle}
+          labelStyle={tooltipItemStyle}
+          formatter={(v, n) => [`${v}%`, n]}
+        />
+        <Scatter data={data} fill={fill}>
+          <LabelList dataKey="category" content={PointLabel} />
+        </Scatter>
+      </ScatterChart>
     </ResponsiveContainer>
   )
 }
+
+export function RoutingChartAD() {
+  return <RoutingScatter dataset="AD" fill={C_CLOUD} />
+}
+export function RoutingChartAD2() {
+  return <RoutingScatter dataset="AD2" fill={C_HYBRID} />
+}
+export const ROUTING_R = { ad: AGGREGATE.ad.r, ad2: AGGREGATE.ad2.r }
 
 const tooltipStyle = {
   background: cssVar('--panel', '#f3f4f6'),

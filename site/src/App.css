@@ -2,14 +2,6 @@
 
 /* ---- title block ---- */
 .title-block { padding: 88px 28px 40px; border-bottom: 1px solid var(--line); }
-.venue {
-  font-family: var(--mono);
-  font-size: 0.74rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--faint);
-  margin: 0 0 20px;
-}
 .title {
   font-size: clamp(1.9rem, 4vw, 2.7rem);
   line-height: 1.15;

@@ -37,7 +37,6 @@ export default function App() {
 function TitleBlock() {
   return (
     <header className="title-block col" id="top">
-      <p className="venue">Qwen Cloud Hackathon · EdgeAgent track</p>
       <h1 className="title">
         Tollgate: cost-based cloud escalation for edge visual inspection
       </h1>

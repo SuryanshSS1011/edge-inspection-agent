@@ -1,0 +1,10 @@
+# Caddy reverse proxy: terminates HTTPS and forwards to the reasoning server on :8080.
+# Caddy automatically obtains and renews a Let's Encrypt certificate for the domain below.
+#
+# Replace YOUR_SUBDOMAIN.duckdns.org with your actual DuckDNS domain before running.
+# CORS is handled by the app (cloud/handler.py via CORS_ALLOW_ORIGIN); Caddy only does TLS.
+
+YOUR_SUBDOMAIN.duckdns.org {
+    encode gzip
+    reverse_proxy reasoning:8080
+}

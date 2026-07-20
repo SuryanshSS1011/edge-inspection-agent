@@ -1,0 +1,60 @@
+# HTTPS deployment: reasoning server + Caddy (auto-TLS) + DuckDNS IP updater.
+# Use this INSTEAD OF docker-compose.yml once you have a DuckDNS domain, so the deployed
+# GitHub Pages site (HTTPS) can call the reasoner without mixed-content blocking.
+#
+#   1. Edit cloud/sas_deploy/Caddyfile: replace YOUR_SUBDOMAIN.duckdns.org.
+#   2. Put these in .env (alongside DASHSCOPE_API_KEY):
+#        DUCKDNS_SUBDOMAIN=your-subdomain      (just the name, no .duckdns.org)
+#        DUCKDNS_TOKEN=your-duckdns-token
+#        CORS_ALLOW_ORIGIN=https://<you>.github.io   (lock to your Pages origin)
+#   3. Open TCP 443 (and 80 for the ACME challenge) in the SAS firewall.
+#   4. docker compose -f cloud/sas_deploy/docker-compose.https.yml up -d --build
+
+services:
+  reasoning:
+    build:
+      context: ../..
+      dockerfile: cloud/sas_deploy/Dockerfile
+    image: edge-inspection-cloud:latest
+    container_name: edge-inspection-cloud
+    expose:
+      - "8080"                 # internal only; Caddy is the public entrypoint now
+    env_file:
+      - ../../.env             # DASHSCOPE_API_KEY, QWEN_MODEL, QWEN_BASE_URL, CORS_ALLOW_ORIGIN
+    environment:
+      - PORT=8080
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz').read() else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2
+    container_name: tollgate-caddy
+    restart: unless-stopped
+    depends_on:
+      - reasoning
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # persists the TLS certificate across restarts
+      - caddy_config:/config
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: tollgate-duckdns
+    restart: unless-stopped
+    environment:
+      - SUBDOMAINS=${DUCKDNS_SUBDOMAIN}
+      - TOKEN=${DUCKDNS_TOKEN}
+      - UPDATE_IP=ipv4
+
+volumes:
+  caddy_data:
+  caddy_config:

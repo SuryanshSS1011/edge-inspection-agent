@@ -35,19 +35,26 @@
 .abstract p { margin: 0; font-size: 1.02rem; line-height: 1.7; }
 
 /* ---- sections ---- */
-section { padding: 48px 0; }
+/* Clear space before each section so a heading never crowds the previous block. Sections
+   don't add bottom padding (their content's last-child margin handles the gap), so the
+   space between sections is dominated by this generous top padding. */
+section { padding: 96px 0 8px; }
+section:first-of-type { padding-top: 40px; }
 .sec-head {
-  font-size: 1.5rem;
-  margin: 0 0 18px;
+  font-size: 1.55rem;
+  line-height: 1.25;
+  margin: 0 0 24px;
   display: flex;
   align-items: baseline;
-  gap: 14px;
+  gap: 16px;
 }
+/* the number matches the heading's font and size, only distinguished by colour */
 .sec-num {
-  font-family: var(--mono);
-  font-size: 1.05rem;
+  font-family: var(--serif);
+  font-size: 1.55rem;
+  font-weight: 600;
   color: var(--link);
-  font-weight: 500;
+  flex-shrink: 0;
 }
 .sub-head { font-size: 1.1rem; margin: 0 0 8px; }
 p { margin: 0 0 16px; }
@@ -82,7 +89,9 @@ p { margin: 0 0 16px; }
 .pipe-detail { color: var(--text); }
 
 /* ---- figures ---- */
-.figure { padding: 40px 0; }
+/* figures have no heading, so they keep symmetric, moderate spacing (overriding the larger
+   pre-heading section padding). */
+.figure { padding: 48px 0; }
 .caption {
   font-family: var(--sans);
   font-size: 0.88rem;

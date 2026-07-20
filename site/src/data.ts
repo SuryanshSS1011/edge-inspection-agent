@@ -69,21 +69,22 @@ export type CategoryRow = {
   hybridHi: number
 }
 
-// results_multi.md — per-category, independently trained.
+// Per-category recall on real MVTec AD with the DINOv2 backbone (our strongest frozen
+// extractor), from the backbone ablation. local = DINOv2 local-only, hybrid = with the router.
 export const CATEGORIES: CategoryRow[] = [
-  { category: 'bottle', n: 61, eceBefore: 0.059, eceAfter: 0.05, local: 0.908, cloud: 0.997, hybrid: 0.988, hybridLo: 0.985, hybridHi: 0.991 },
-  { category: 'grid', n: 69, eceBefore: 0.222, eceAfter: 0.221, local: 0.811, cloud: 0.997, hybrid: 0.939, hybridLo: 0.936, hybridHi: 0.943 },
-  { category: 'metal_nut', n: 69, eceBefore: 0.167, eceAfter: 0.096, local: 0.951, cloud: 0.998, hybrid: 0.974, hybridLo: 0.944, hybridHi: 0.989 },
-  { category: 'screw', n: 98, eceBefore: 0.224, eceAfter: 0.214, local: 0.873, cloud: 0.963, hybrid: 0.97, hybridLo: 0.969, hybridHi: 0.972 },
-  { category: 'cable', n: 76, eceBefore: 0.163, eceAfter: 0.155, local: 0.883, cloud: 0.998, hybrid: 0.963, hybridLo: 0.961, hybridHi: 0.966 },
-  { category: 'capsule', n: 72, eceBefore: 0.147, eceAfter: 0.138, local: 0.921, cloud: 0.998, hybrid: 0.98, hybridLo: 0.978, hybridHi: 0.982 },
+  { category: 'bottle', n: 61, eceBefore: 0.059, eceAfter: 0.05, local: 0.988, cloud: 0.997, hybrid: 1.0, hybridLo: 0.999, hybridHi: 1.0 },
+  { category: 'grid', n: 69, eceBefore: 0.222, eceAfter: 0.221, local: 0.993, cloud: 0.997, hybrid: 1.0, hybridLo: 0.999, hybridHi: 1.0 },
+  { category: 'metal_nut', n: 69, eceBefore: 0.167, eceAfter: 0.096, local: 0.976, cloud: 0.998, hybrid: 0.998, hybridLo: 0.994, hybridHi: 1.0 },
+  { category: 'screw', n: 98, eceBefore: 0.224, eceAfter: 0.214, local: 0.941, cloud: 0.963, hybrid: 0.993, hybridLo: 0.99, hybridHi: 0.995 },
+  { category: 'cable', n: 76, eceBefore: 0.163, eceAfter: 0.155, local: 0.913, cloud: 0.998, hybrid: 0.995, hybridLo: 0.992, hybridHi: 0.997 },
+  { category: 'capsule', n: 72, eceBefore: 0.147, eceAfter: 0.138, local: 0.906, cloud: 0.998, hybrid: 0.994, hybridLo: 0.991, hybridHi: 0.997 },
 ]
 
 export const AGGREGATE = {
-  hybridMean: 0.969,
-  hybridStd: 0.015,
-  localMean: 0.891,
-  lift: 0.078,
+  hybridMean: 0.997,
+  hybridStd: 0.003,
+  localMean: 0.953,
+  lift: 0.044,
   nCategories: 6,
 } as const
 

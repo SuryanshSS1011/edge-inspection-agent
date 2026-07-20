@@ -103,8 +103,8 @@ export function RobustnessChart() {
         />
         <Tooltip cursor={{ fill: 'rgba(128,128,128,0.08)' }} contentStyle={tooltipStyle}
           formatter={(v) => `${v}%`} />
-        <ReferenceLine y={96.9} stroke={C_HYBRID} strokeDasharray="4 4"
-          label={{ value: 'mean 0.969', fill: C_HYBRID, fontSize: 10, position: 'insideTopRight' }} />
+        <ReferenceLine y={99.7} stroke={C_HYBRID} strokeDasharray="4 4"
+          label={{ value: 'mean 0.997', fill: C_HYBRID, fontSize: 10, position: 'insideTopRight' }} />
         <Bar dataKey="local" name="local-only" fill={C_BAR_LOCAL} radius={[3, 3, 0, 0]} />
         <Bar dataKey="hybrid" name="hybrid" fill={C_HYBRID} radius={[3, 3, 0, 0]} />
       </BarChart>

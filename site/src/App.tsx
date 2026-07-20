@@ -169,8 +169,8 @@ function Results() {
         <figure className="fig-cell">
           <RobustnessChart />
           <figcaption className="caption">
-            <strong>Figure 3.</strong> Hybrid recall across six categories, mean 0.969 ± 0.015.
-            Local-only in grey; hybrid in colour.
+            <strong>Figure 3.</strong> Hybrid recall across six categories (DINOv2 backbone),
+            mean 0.997 ± 0.003. Local-only in grey; hybrid in colour.
           </figcaption>
         </figure>
       </div>

@@ -87,41 +87,57 @@
   white-space: nowrap;
 }
 
-/* ---- named example parts ---- */
-.part {
+/* ---- named example parts as marker lines ---- */
+.pmark {
   position: absolute;
-  top: 40%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  bottom: 0;
+  width: 0;
   z-index: 3;
   transition: left 0.15s ease;
 }
-.part-dot {
-  display: block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid var(--paper);
-  margin: 0 auto;
-}
-.part-pass .part-dot { background: var(--pass); }
-.part-escalate .part-dot { background: var(--toll); }
-.part-reject .part-dot { background: var(--reject); }
-.part-tag {
+.pmark::before {  /* the vertical marker line, coloured by its decision */
+  content: '';
   position: absolute;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  white-space: nowrap;
-  font-size: 0.72rem;
-  color: var(--text);
-  line-height: 1.4;
-  font-weight: 500;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-left: 2px solid var(--muted);
 }
-.part-tag .mono { color: var(--muted); font-size: 0.68rem; font-weight: 400; }
-/* keep the edge part tags from clipping past the track */
-.part-first .part-tag { left: 0; transform: none; text-align: left; }
-.part-last .part-tag { left: auto; right: 0; transform: none; text-align: right; }
+.pmark::after {   /* a small cap dot at the top of the line */
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  border: 2px solid var(--paper);
+}
+.pmark-pass::before { border-color: var(--pass); }
+.pmark-pass::after { background: var(--pass); }
+.pmark-escalate::before { border-color: var(--toll); }
+.pmark-escalate::after { background: var(--toll); }
+.pmark-reject::before { border-color: var(--reject); }
+.pmark-reject::after { background: var(--reject); }
+
+.pmark-tag {
+  position: absolute;
+  bottom: calc(100% + 12px);   /* label sits above the track's top edge */
+  left: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+.pmark-name { font-size: 0.74rem; color: var(--text); font-weight: 500; }
+.pmark-p { font-size: 0.68rem; color: var(--muted); }
+/* edge markers align their label inward so it never clips off the track */
+.mark-first .pmark-tag { left: 0; transform: none; align-items: flex-start; }
+.mark-last .pmark-tag { left: 0; transform: translateX(-100%); align-items: flex-end; }
 
 /* ---- draggable probe ---- */
 .probe {

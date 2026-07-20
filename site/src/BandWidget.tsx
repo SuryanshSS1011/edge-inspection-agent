@@ -103,13 +103,15 @@ export default function BandWidget() {
         {valid && <Threshold x={lo} label="p_lo" />}
         {valid && <Threshold x={hi} label="p_hi" />}
 
-        {/* named example parts */}
+        {/* named example parts as marker lines with a label at the top edge */}
         {PARTS.map((part, i) => {
-          const edge = i === 0 ? 'part-first' : i === PARTS.length - 1 ? 'part-last' : ''
+          const edge = i === 0 ? 'mark-first' : i === PARTS.length - 1 ? 'mark-last' : ''
           return (
-            <div key={part.label} className={`part part-${classify(part.p)} ${edge}`} style={{ left: pct(part.p) }}>
-              <span className="part-dot" />
-              <span className="part-tag">{part.label}<br /><span className="mono">p={part.p}</span></span>
+            <div key={part.label} className={`pmark pmark-${classify(part.p)} ${edge}`} style={{ left: pct(part.p) }}>
+              <span className="pmark-tag">
+                <span className="pmark-name">{part.label}</span>
+                <span className="pmark-p mono">p = {part.p}</span>
+              </span>
             </div>
           )
         })}

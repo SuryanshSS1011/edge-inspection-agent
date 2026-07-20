@@ -376,7 +376,7 @@ function References() {
         <li>Reasoning tier: Qwen3-VL via Alibaba Cloud DashScope, served from a Docker container on Alibaba SAS.</li>
       </ol>
       <p className="colophon">
-        <a href={LINKS.repo}>Source code</a> · Qwen3-VL · Alibaba Cloud · Evaluated on Penn State ROAR.
+        <a href={LINKS.repo}>Source code</a>
       </p>
     </footer>
   )

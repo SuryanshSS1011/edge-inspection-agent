@@ -30,6 +30,7 @@ def test_logit_rejects_unexpected_shape():
 def test_logit_from_probability_pair():
     # [P(good), P(defect)] summing to 1 -> log(p_def / p_good).
     import math
+
     out = logit_from_output(np.array([[0.2, 0.8]]))
     assert out == pytest.approx(math.log(0.8 / 0.2))
 
@@ -41,6 +42,7 @@ def test_logit_distinguishes_probs_from_logits():
 
 def test_pick_score_output_prefers_probabilities():
     from edge.perception import _pick_score_output
+
     # sklearn-onnx style: [label(int), probabilities(2)] -> pick the 2-value output.
     outputs = [np.array([0]), np.array([[0.3, 0.7]])]
     picked = _pick_score_output(outputs)
@@ -72,6 +74,7 @@ def test_predict_from_logit_temperature_softens():
 
 # --- live feature dispatch: predict() must build the input the model declares ---
 
+
 class _FakeInput:
     def __init__(self, shape):
         self.name = "input"
@@ -80,6 +83,7 @@ class _FakeInput:
 
 class _FakeSession:
     """Records the tensor it was run with so we can assert the right feature width."""
+
     def __init__(self, shape):
         self._shape = shape
         self.last_tensor = None
@@ -105,6 +109,17 @@ def test_predict_dispatches_to_handcrafted_features():
     frame = np.zeros((40, 40, 3), np.uint8)
     clf.predict(frame)
     assert clf._session.last_tensor.shape == (1, 23)
+
+
+def test_predict_dispatches_to_dinov2_embedding(monkeypatch):
+    # A [None, 384] head (the DINOv2 core backbone) must receive the 384-d CLS embedding.
+    import eval.dinov2_features as dv
+
+    monkeypatch.setattr(dv, "extract_from_bgr", lambda frame: np.zeros(384, np.float32))
+    clf = _classifier_with_session([None, 384])
+    frame = np.zeros((40, 40, 3), np.uint8)
+    clf.predict(frame)
+    assert clf._session.last_tensor.shape == (1, 384)
 
 
 def test_predict_dispatches_to_raw_image_for_cnn():

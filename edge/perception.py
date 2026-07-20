@@ -24,7 +24,7 @@ _STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 @dataclass
 class Perception:
-    p: float            # calibrated defect probability
+    p: float  # calibrated defect probability
     uncertainty: float  # 1 - |2p - 1|: peaks at p=0.5, zero at the extremes
 
 
@@ -35,7 +35,7 @@ def preprocess(frame: np.ndarray, size: Tuple[int, int] = _INPUT_SIZE) -> np.nda
     img = cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
     img = (img - _MEAN) / _STD
-    chw = np.transpose(img, (2, 0, 1))            # HWC -> CHW
+    chw = np.transpose(img, (2, 0, 1))  # HWC -> CHW
     return np.expand_dims(chw, 0).astype(np.float32)  # add batch dim
 
 
@@ -105,7 +105,8 @@ class OnnxClassifier:
         """Build the input the loaded model expects from a live BGR frame.
 
         The head trained in eval determines the input width, so we dispatch on it:
-          * 23  -> hand-crafted color/edge/grid features (default classifier.onnx)
+          * 23  -> hand-crafted color/edge/grid features (legacy classifier.onnx)
+          * 384 -> DINOv2 ViT-S/14 CLS embedding (the default core backbone)
           * 1000 -> MobileNetV2 embedding (grid_mobilenet.onnx backbone head)
           * else (a 4-D CNN taking a raw image) -> ImageNet-normalized NCHW tensor
         This keeps the live path in lockstep with whatever config.yaml points `model` at,
@@ -113,9 +114,15 @@ class OnnxClassifier:
         self._ensure_session()
         if self._input_dim == 23:
             from eval.features import features_from_bgr
+
             return features_from_bgr(frame).reshape(1, -1)
+        if self._input_dim == 384:
+            from eval.dinov2_features import extract_from_bgr
+
+            return extract_from_bgr(frame).reshape(1, -1)
         if self._input_dim == 1000:
             from eval.mobilenet_features import extract_from_bgr
+
             return extract_from_bgr(frame).reshape(1, -1)
         return preprocess(frame)  # raw-image CNN
 

@@ -41,13 +41,23 @@
   bottom: 0;
   transition: left 0.15s ease, width 0.15s ease;
 }
-.zone-pass { left: 0; background: color-mix(in srgb, var(--pass) 15%, transparent); border-right: 1px dashed color-mix(in srgb, var(--pass) 45%, transparent); }
-.zone-escalate {
-  background: color-mix(in srgb, var(--toll) 20%, transparent);
-  border-left: 1px dashed color-mix(in srgb, var(--toll) 55%, transparent);
-  border-right: 1px dashed color-mix(in srgb, var(--toll) 55%, transparent);
+/* The pass zone is usually thin (p_lo is small). Give it a solid accent strip on the far left
+   so "Pass locally" is always visible even when the region is only a few percent wide. */
+.zone-pass {
+  left: 0;
+  background: color-mix(in srgb, var(--pass) 22%, transparent);
+  border-right: 2px dashed color-mix(in srgb, var(--pass) 60%, transparent);
+  box-shadow: inset 3px 0 0 var(--pass);
 }
-.zone-reject { background: color-mix(in srgb, var(--reject) 13%, transparent); }
+.zone-escalate {
+  background: color-mix(in srgb, var(--toll) 26%, transparent);
+  border-left: 2px dashed color-mix(in srgb, var(--toll) 65%, transparent);
+  border-right: 2px dashed color-mix(in srgb, var(--toll) 65%, transparent);
+}
+.zone-reject {
+  background: color-mix(in srgb, var(--reject) 18%, transparent);
+  box-shadow: inset -3px 0 0 color-mix(in srgb, var(--reject) 70%, transparent);
+}
 
 /* zone labels sit inside their band, low, so parts/probe read above them. They are a soft
    watermark, not competing with the part tags. */
@@ -177,12 +187,14 @@
 .probe-escalate .probe-handle { border-color: var(--toll); }
 .probe-reject .probe-handle { border-color: var(--reject); }
 
-/* ---- axis ticks ---- */
+/* ---- axis ticks ----
+   Sits below the threshold tags (which occupy the -20px band under the track), so the
+   0.0 / 1.0 endpoints never stack on top of p_lo / p_hi. */
 .band-axis {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 26px;
   font-family: var(--mono);
   font-size: 0.72rem;
   color: var(--faint);

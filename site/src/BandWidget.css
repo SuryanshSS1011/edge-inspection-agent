@@ -1,147 +1,223 @@
 .band {
-  background: var(--panel);
+  font-family: var(--sans);
+  background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 28px;
+  border-radius: 8px;
+  padding: 28px 32px 32px;
 }
 
+/* ---- legend ---- */
+.band-legend {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.lg-item { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+.sw-pass { background: var(--pass); }
+.sw-escalate { background: var(--toll); }
+.sw-reject { background: var(--reject); }
+
+/* ---- the axis track ---- */
 .band-track {
   position: relative;
-  height: 128px;
-  border-radius: 8px;
-  background: var(--ink);
+  height: 96px;
+  border-radius: 6px;
+  background: var(--panel);
   border: 1px solid var(--line);
-  overflow: hidden;
-  margin-top: 26px; /* room for threshold tags */
+  cursor: ew-resize;
+  touch-action: none;
+  margin-top: 44px;   /* room for the part tags that sit above the track */
+  overflow: visible;
 }
+.band-track:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
 
-.band-side {
+.zone {
   position: absolute;
   top: 0;
-  bottom: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
+  bottom: 0;
+  transition: left 0.15s ease, width 0.15s ease;
+}
+.zone-pass { left: 0; background: color-mix(in srgb, var(--pass) 15%, transparent); border-right: 1px dashed color-mix(in srgb, var(--pass) 45%, transparent); }
+.zone-escalate {
+  background: color-mix(in srgb, var(--toll) 20%, transparent);
+  border-left: 1px dashed color-mix(in srgb, var(--toll) 55%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--toll) 55%, transparent);
+}
+.zone-reject { background: color-mix(in srgb, var(--reject) 13%, transparent); }
+
+/* zone labels sit inside their band, low, so parts/probe read above them. They are a soft
+   watermark, not competing with the part tags. */
+.zone::after {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-}
-.band-pass { left: 0; background: color-mix(in srgb, var(--pass) 9%, transparent); }
-.band-reject { background: color-mix(in srgb, var(--reject) 9%, transparent); }
-
-.band-zone {
-  position: absolute;
-  top: 0;
-  bottom: 22px;
-  background: var(--grad-toll);
-  opacity: 0.9;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  box-shadow: 0 0 30px color-mix(in srgb, var(--toll) 40%, transparent);
-  transition: left 0.12s ease, width 0.12s ease;
-}
-.band-zone-label {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  white-space: nowrap;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #1b1206;
-  padding-top: 8px;
+  opacity: 0.9;
 }
+.zone-escalate::after { content: 'escalate'; color: var(--toll); }
+.zone-reject::after { content: 'reject'; color: var(--reject); }
+/* The pass zone is usually thin (low p_lo); its green dot + "clean part" tag already read
+   as pass, so we omit a PASS watermark to avoid crowding the left edge. */
 
+/* ---- thresholds ---- */
 .thresh {
   position: absolute;
-  top: -24px;
-  bottom: 22px;
-  width: 0;
-  border-left: 1px dashed var(--line-2);
-  transition: left 0.12s ease;
+  top: 0;
+  bottom: 0;
+  border-left: 1.5px solid var(--ink);
+  transition: left 0.15s ease;
+  z-index: 2;
 }
 .thresh-tag {
   position: absolute;
-  top: -2px;
+  bottom: -20px;
   left: 50%;
   transform: translateX(-50%);
+  font-size: 0.66rem;
+  color: var(--muted);
   white-space: nowrap;
-  font-size: 0.68rem;
-  color: var(--text-dim);
-  background: var(--panel);
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
-.thresh-tag b { color: var(--toll); }
 
+/* ---- named example parts ---- */
 .part {
   position: absolute;
-  top: 42px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+  top: 40%;
   transform: translate(-50%, -50%);
-  border: 2px solid var(--ink);
-  transition: left 0.12s ease;
+  z-index: 3;
+  transition: left 0.15s ease;
 }
-.part-pass { background: var(--pass); box-shadow: 0 0 10px color-mix(in srgb, var(--pass) 60%, transparent); }
-.part-escalate { background: var(--toll); box-shadow: 0 0 10px color-mix(in srgb, var(--toll) 70%, transparent); }
-.part-reject { background: var(--reject); box-shadow: 0 0 10px color-mix(in srgb, var(--reject) 60%, transparent); }
-.part-p {
+.part-dot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--paper);
+  margin: 0 auto;
+}
+.part-pass .part-dot { background: var(--pass); }
+.part-escalate .part-dot { background: var(--toll); }
+.part-reject .part-dot { background: var(--reject); }
+.part-tag {
   position: absolute;
-  top: 16px;
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 0.64rem;
-  color: var(--text-faint);
+  text-align: center;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--text);
+  line-height: 1.4;
+  font-weight: 500;
 }
+.part-tag .mono { color: var(--muted); font-size: 0.68rem; font-weight: 400; }
+/* keep the edge part tags from clipping past the track */
+.part-first .part-tag { left: 0; transform: none; text-align: left; }
+.part-last .part-tag { left: auto; right: 0; transform: none; text-align: right; }
 
-.band-axis {
+/* ---- draggable probe ---- */
+.probe {
   position: absolute;
-  left: 0;
-  right: 0;
+  top: 0;
   bottom: 0;
-  height: 22px;
+  width: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.probe-handle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.probe::before {  /* vertical guide line */
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-left: 2px solid var(--ink);
+  opacity: 0.55;
+}
+.probe-pass .probe-handle { border-color: var(--pass); }
+.probe-escalate .probe-handle { border-color: var(--toll); }
+.probe-reject .probe-handle { border-color: var(--reject); }
+
+/* ---- axis ticks ---- */
+.band-axis {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--faint);
+}
+.axis-title { letter-spacing: 0.04em; color: var(--muted); }
+
+/* ---- probe readout ---- */
+.probe-readout {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  border-top: 1px solid var(--line);
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  color: var(--text-faint);
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
 }
-.band-axis-mid { letter-spacing: 0.08em; }
+.probe-p { color: var(--ink); font-weight: 600; }
+.probe-arrow { color: var(--faint); }
+.probe-decision { font-weight: 600; }
+.d-pass { color: var(--pass); }
+.d-escalate { color: var(--toll); }
+.d-reject { color: var(--reject); }
+.band-warn { color: var(--reject); font-size: 0.82rem; }
 
-.band-readout {
+/* ---- derived thresholds ---- */
+.band-derived {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: 8px 24px;
   margin-top: 18px;
   font-size: 0.82rem;
-  color: var(--text-dim);
+  color: var(--muted);
 }
-.band-readout b { color: var(--text); }
-.band-warn { color: var(--reject); }
+.band-derived b { color: var(--text); }
 
+/* ---- sliders ---- */
 .band-sliders {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-  margin-top: 24px;
+  gap: 22px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
 }
-@media (max-width: 640px) {
-  .band-sliders { grid-template-columns: repeat(2, 1fr); }
-}
+@media (max-width: 640px) { .band-sliders { grid-template-columns: repeat(2, 1fr); } }
 
-.slider { display: flex; flex-direction: column; gap: 6px; }
+.slider { display: flex; flex-direction: column; gap: 8px; }
 .slider-top { display: flex; justify-content: space-between; align-items: baseline; }
-.slider-label { font-size: 0.9rem; color: var(--text); font-weight: 600; }
-.slider-val { font-size: 0.82rem; color: var(--toll); }
-.slider-hint { font-size: 0.72rem; color: var(--text-faint); }
+.slider-label { font-size: 0.9rem; color: var(--ink); font-weight: 600; }
+.slider-val { font-size: 0.86rem; color: var(--toll); font-weight: 600; }
+.slider-hint { font-size: 0.74rem; color: var(--faint); }
 
 .slider input[type='range'] {
   -webkit-appearance: none;
@@ -155,27 +231,20 @@
 .slider input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   background: var(--toll);
-  border: 2px solid var(--ink);
+  border: 2px solid var(--paper);
   cursor: pointer;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--toll) 60%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 .slider input[type='range']::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   background: var(--toll);
-  border: 2px solid var(--ink);
+  border: 2px solid var(--paper);
   cursor: pointer;
 }
-
-.band-caption {
-  margin: 20px 0 0;
-  font-size: 0.9rem;
-  color: var(--text-dim);
-  max-width: 68ch;
-}
-.band-caption em { color: var(--text); font-style: normal; font-weight: 600; }
+.slider input[type='range']:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }

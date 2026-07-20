@@ -40,8 +40,9 @@
   --accent: var(--link);
   --accent-dim: var(--link-dim);
   --grad-toll: linear-gradient(90deg, var(--toll), color-mix(in srgb, var(--toll) 70%, #d89b3a));
-  --font-body: var(--serif);
-  --font-display: var(--serif);
+  /* widgets/figures use SANS for UI labels and MONO for data; serif is prose-only. */
+  --font-body: var(--sans);
+  --font-display: var(--sans);
   --font-mono: var(--mono);
 }
 

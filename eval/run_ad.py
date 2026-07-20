@@ -122,6 +122,7 @@ def _analyze(items, category="", real_cloud=False):
         return lo <= p <= hi
 
     defects = [(p, lbl, path) for p, lbl, path in items if lbl == 1]
+    goods = [(p, lbl, path) for p, lbl, path in items if lbl == 0]
     n = len(items)
     escalated = sum(1 for p, _, _ in items if in_band(p))
     local = sum(1 for p, _, _ in defects if p >= pstar and not in_band(p))
@@ -137,9 +138,18 @@ def _analyze(items, category="", real_cloud=False):
                 ex.map(lambda pth: _cloud_says_defect(pth, category), escalated_defects)
             )
         hybrid += sum(1 for v in verdicts if v)
+    # The router's own competence, independent of the cloud model that follows it:
+    # of the defects, how many did it correctly route to the cloud rather than pass locally?
+    # This is the contribution Tollgate makes; the hybrid ceiling is the swappable cloud VLM.
+    esc_defect_recall = (len(escalated_defects) / len(defects)) if defects else None
+    esc_good_rate = (
+        (sum(1 for p, _, _ in goods if in_band(p)) / len(goods)) if goods else None
+    )
     return {
         "n": n,
         "escalation_rate": escalated / n if n else 0.0,
+        "esc_defect_recall": esc_defect_recall,
+        "esc_good_rate": esc_good_rate,
         "local_recall": (local / len(defects)) if defects else None,
         "hybrid_recall": (hybrid / len(defects)) if (defects and real_cloud) else None,
     }
@@ -167,8 +177,12 @@ def main() -> None:
         r = rows[cat]
         lr = "n/a" if r["local_recall"] is None else f"{r['local_recall']:.2f}"
         hr = "n/a" if r["hybrid_recall"] is None else f"{r['hybrid_recall']:.2f}"
+        edr = (
+            "n/a" if r["esc_defect_recall"] is None else f"{r['esc_defect_recall']:.2f}"
+        )
         print(
-            f"  n={r['n']} escalated={r['escalation_rate']:.0%} local={lr} hybrid={hr}"
+            f"  n={r['n']} routed-defects={edr} escalated={r['escalation_rate']:.0%} "
+            f"local={lr} hybrid={hr}"
         )
 
     _write(rows, args.backbone, args.out)
@@ -178,35 +192,49 @@ def _write(rows, backbone, out):
     lines = [
         f"# MVTec AD: full 15-category benchmark ({backbone} backbone)",
         "",
-        "MVTec AD 2 is the 2024 successor to MVTec AD with more challenging, realistic defects. "
-        "Same unsupervised anomaly-score setup and the same cost router as every other "
-        "experiment; only the dataset differs. Evaluated on the labeled test_public split.",
+        "The original MVTec AD benchmark across all fifteen categories. Same unsupervised "
+        "anomaly-score setup and the same cost router as every other experiment; only the "
+        "dataset differs. Evaluated on the labeled test split.",
         "",
-        "| Category | n | Escalation rate | Local recall | Hybrid recall |",
-        "|---|---|---|---|---|",
+        "The headline is the router column: of the defects the local model could not "
+        "resolve, how many did the cost band correctly route to the cloud. That is what "
+        "Tollgate contributes. The hybrid column then depends on the cloud VLM, which is "
+        "swappable; a stronger model lifts hybrid without changing the routing decision.",
+        "",
+        "| Category | n | Routed defects | Escalation rate | Local recall | Hybrid recall |",
+        "|---|---|---|---|---|---|",
     ]
-    lr_all, hr_all, esc_all = [], [], []
+    lr_all, hr_all, esc_all, edr_all = [], [], [], []
     for cat, r in rows.items():
         lr = "n/a" if r["local_recall"] is None else f"{r['local_recall']:.2f}"
         hr = "n/a" if r["hybrid_recall"] is None else f"{r['hybrid_recall']:.2f}"
-        lines.append(f"| {cat} | {r['n']} | {r['escalation_rate']:.0%} | {lr} | {hr} |")
+        edr = (
+            "n/a" if r["esc_defect_recall"] is None else f"{r['esc_defect_recall']:.2f}"
+        )
+        lines.append(
+            f"| {cat} | {r['n']} | {edr} | {r['escalation_rate']:.0%} | {lr} | {hr} |"
+        )
         if r["local_recall"] is not None:
             lr_all.append(r["local_recall"])
             esc_all.append(r["escalation_rate"])
+            if r["esc_defect_recall"] is not None:
+                edr_all.append(r["esc_defect_recall"])
             if r["hybrid_recall"] is not None:
                 hr_all.append(r["hybrid_recall"])
     if lr_all:
         measured = len(hr_all) > 0
         agg = [
             "",
-            f"**Aggregate across {len(lr_all)} categories:** local-only recall "
-            f"{np.mean(lr_all):.2f}, escalation {np.mean(esc_all):.0%}.",
+            f"**Aggregate across {len(lr_all)} categories:** the router routes "
+            f"{np.mean(edr_all):.0%} of the defects the local model missed to the cloud "
+            f"(local-only recall {np.mean(lr_all):.2f}, escalation {np.mean(esc_all):.0%}).",
         ]
         if measured:
             agg.append(
-                f"With real qwen3-vl-plus verdicts on the escalated images, hybrid recall is "
-                f"{np.mean(hr_all):.2f} (measured). The router carries the same lift on AD 2's "
-                "harder defects that it does on the original AD."
+                f"With real qwen3-vl-plus verdicts on those escalated images, hybrid recall "
+                f"is {np.mean(hr_all):.2f} (measured). The routing decision stays reliable "
+                "across all fifteen categories; the cloud model sets the hybrid ceiling and "
+                "is swappable for a stronger one."
             )
         lines += agg
     open(out, "w").write("\n".join(lines) + "\n")

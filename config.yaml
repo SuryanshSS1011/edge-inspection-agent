@@ -9,8 +9,11 @@ network:
 
 paths:
   db: ./edge.db
-  model: ./models/classifier.onnx
-  calibration: ./models/temperature.json
+  # DINOv2 ViT-S/14 (384-d) is the core backbone. The head is dispatched by input width in
+  # edge/perception.py; the handcrafted (classifier.onnx) and MobileNet heads remain as the
+  # ablation arms. dinov2.onnx (the frozen backbone) must sit alongside for the 384-d path.
+  model: ./models/classifier_dinov2.onnx
+  calibration: ./models/temperature_dinov2.json
 
 drift:
   window: 200        # recent predictions to compare against reference distribution

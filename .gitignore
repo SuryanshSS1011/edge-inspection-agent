@@ -5,6 +5,15 @@ __pycache__/
 edge.db
 models/*.onnx
 models/temperature.json
+# Ship the deployable models in-repo (all well under GitHub's 100MB/file limit) so the
+# runtime is reproducible with no external download. DINOv2 is the core backbone; the
+# handcrafted + MobileNet heads stay as ablation arms.
+!models/classifier.onnx
+!models/classifier_dinov2.onnx
+!models/dinov2.onnx
+!models/dinov2.onnx.data
+!models/grid_mobilenet.onnx
+!models/temperature_dinov2.json
 .env
 env
 *.egg-info/

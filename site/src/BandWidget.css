@@ -68,52 +68,56 @@
 /* The pass zone is usually thin (low p_lo); its green dot + "clean part" tag already read
    as pass, so we omit a PASS watermark to avoid crowding the left edge. */
 
-/* ---- thresholds ---- */
+/* ---- thresholds ----
+   The zone fills already draw a dashed boundary at p_lo and p_hi, so the threshold marker is
+   just a small label tag sitting just below the track at that x, not another full line. */
 .thresh {
   position: absolute;
-  top: 0;
   bottom: 0;
-  border-left: 1.5px solid var(--ink);
+  width: 0;
   transition: left 0.15s ease;
   z-index: 2;
 }
 .thresh-tag {
   position: absolute;
   bottom: -20px;
-  left: 50%;
+  left: 0;
   transform: translateX(-50%);
   font-size: 0.66rem;
   color: var(--muted);
   white-space: nowrap;
 }
 
-/* ---- named example parts as marker lines ---- */
+/* ---- named example parts ----
+   Each part is a short tick sitting on the TOP EDGE of the track (a dot with a stub), never
+   a line slicing across the band. The label floats above it. This keeps the interior of the
+   band clean so only the probe and the two zone boundaries read as full-height lines. */
 .pmark {
   position: absolute;
   top: 0;
-  bottom: 0;
   width: 0;
   z-index: 3;
   transition: left 0.15s ease;
 }
-.pmark::before {  /* the vertical marker line, coloured by its decision */
+.pmark::before {  /* a short stub anchored to the top edge, not a full line */
   content: '';
   position: absolute;
   top: 0;
-  bottom: 0;
   left: 0;
+  height: 14px;
   border-left: 2px solid var(--muted);
 }
-.pmark::after {   /* a small cap dot at the top of the line */
+.pmark::after {   /* the dot cap, sitting on the top edge */
   content: '';
   position: absolute;
-  top: -4px;
+  top: -5px;
   left: 0;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   transform: translateX(-50%);
   border: 2px solid var(--paper);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 .pmark-pass::before { border-color: var(--pass); }
 .pmark-pass::after { background: var(--pass); }
@@ -124,20 +128,20 @@
 
 .pmark-tag {
   position: absolute;
-  bottom: calc(100% + 12px);   /* label sits above the track's top edge */
+  bottom: calc(100% + 10px);   /* label sits above the track's top edge */
   left: 0;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   white-space: nowrap;
-  line-height: 1.35;
+  line-height: 1.3;
 }
-.pmark-name { font-size: 0.74rem; color: var(--text); font-weight: 500; }
-.pmark-p { font-size: 0.68rem; color: var(--muted); }
+.pmark-name { font-size: 0.73rem; color: var(--text); font-weight: 500; }
+.pmark-p { font-size: 0.67rem; color: var(--faint); }
 /* edge markers align their label inward so it never clips off the track */
-.mark-first .pmark-tag { left: 0; transform: none; align-items: flex-start; }
-.mark-last .pmark-tag { left: 0; transform: translateX(-100%); align-items: flex-end; }
+.mark-first .pmark-tag { transform: none; align-items: flex-start; }
+.mark-last .pmark-tag { transform: translateX(-100%); align-items: flex-end; }
 
 /* ---- draggable probe ---- */
 .probe {
@@ -160,14 +164,14 @@
   border: 3px solid var(--ink);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
-.probe::before {  /* vertical guide line */
+.probe::before {  /* vertical guide line: the one full-height line, the interactive element */
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
   border-left: 2px solid var(--ink);
-  opacity: 0.55;
+  opacity: 0.4;
 }
 .probe-pass .probe-handle { border-color: var(--pass); }
 .probe-escalate .probe-handle { border-color: var(--toll); }

@@ -135,7 +135,7 @@ export default function BandWidget() {
         <span className="mono probe-p">p = {probe.toFixed(2)}</span>
         <span className="probe-arrow">→</span>
         <span className={`probe-decision d-${probeZone}`}>{ZONE_LABEL[probeZone]}</span>
-        {!valid && <span className="band-warn">band empty — no item is worth escalating</span>}
+        {!valid && <span className="band-warn">band empty, no item is worth escalating</span>}
       </div>
 
       {/* the derived thresholds */}

@@ -25,7 +25,9 @@ const GRID = cssVar('--line', '#e0e2e7')
 const C_HYBRID = cssVar('--toll', '#b8791b')
 const C_CLOUD = cssVar('--link', '#2f5fd0')
 const C_LOCAL = cssVar('--pass', '#2f8f5b')
-const C_BAR_LOCAL = cssVar('--line-2', '#cfd2d9')
+// A visible slate-blue for the local-only bar. The previous --line-2 gray sat almost on
+// top of the paper background, so both the column and its tooltip swatch disappeared.
+const C_BAR_LOCAL = cssVar('--link-dim', '#6f8fdd')
 
 // Recall vs. cloud cost per 1k. The point of the chart: hybrid sits near cloud accuracy
 // but far left on cost. Bottle numbers from results_table_real.md.
@@ -38,13 +40,14 @@ const COST_POINTS = [
 export function CostChart() {
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <ScatterChart margin={{ top: 16, right: 20, bottom: 34, left: 4 }}>
+      <ScatterChart margin={{ top: 16, right: 24, bottom: 34, left: 8 }}>
         <CartesianGrid stroke={GRID} strokeDasharray="2 4" />
         <XAxis
           type="number"
           dataKey="cost"
           name="cost"
-          domain={[-100, 2100]}
+          domain={[0, 2100]}
+          ticks={[0, 500, 1000, 1500, 2000]}
           tick={{ fill: AXIS, fontSize: 11, fontFamily: 'IBM Plex Mono' }}
           tickFormatter={(v) => `$${v}`}
           label={{ value: 'cloud cost / 1k', position: 'insideBottom', offset: -18, fill: AXIS, fontSize: 11 }}
@@ -96,7 +99,8 @@ export function RobustnessChart() {
           height={44}
         />
         <YAxis
-          domain={[80, 100]}
+          domain={[80, 101]}
+          ticks={[80, 85, 90, 95, 100]}
           tick={{ fill: AXIS, fontSize: 11, fontFamily: 'IBM Plex Mono' }}
           stroke={GRID}
           width={36}
@@ -104,7 +108,7 @@ export function RobustnessChart() {
         <Tooltip cursor={{ fill: 'rgba(128,128,128,0.08)' }} contentStyle={tooltipStyle}
           formatter={(v) => `${v}%`} />
         <ReferenceLine y={99.7} stroke={C_HYBRID} strokeDasharray="4 4"
-          label={{ value: 'mean 0.997', fill: C_HYBRID, fontSize: 10, position: 'insideTopRight' }} />
+          label={{ value: 'mean 0.997', fill: C_HYBRID, fontSize: 10, position: 'top', offset: 6 }} />
         <Bar dataKey="local" name="local-only" fill={C_BAR_LOCAL} radius={[3, 3, 0, 0]} />
         <Bar dataKey="hybrid" name="hybrid" fill={C_HYBRID} radius={[3, 3, 0, 0]} />
       </BarChart>

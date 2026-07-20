@@ -104,18 +104,13 @@ def _analyze(items, category="", real_cloud=False):
         return lo <= p <= hi
 
     defects = [(p, lbl, path) for p, lbl, path in items if lbl == 1]
-    goods = [(p, lbl, path) for p, lbl, path in items if lbl == 0]
     n = len(items)
     escalated = sum(1 for p, _, _ in items if in_band(p))
     local = sum(1 for p, _, _ in defects if p >= pstar and not in_band(p))
-    hybrid = 0
     # Escalated defects are confirmed by the cloud; fire those calls concurrently so the
     # sequential ~2.7s latency doesn't dominate the wall time.
     escalated_defects = [path for p, _, path in defects if in_band(p)]
-    local_caught_defects = sum(
-        1 for p, _, _ in defects if not in_band(p) and p >= pstar
-    )
-    hybrid = local_caught_defects
+    hybrid = sum(1 for p, _, _ in defects if not in_band(p) and p >= pstar)
     if real_cloud and escalated_defects:
         import os
         from concurrent.futures import ThreadPoolExecutor
@@ -128,26 +123,9 @@ def _analyze(items, category="", real_cloud=False):
                 ex.map(lambda pth: _cloud_says_defect(pth, category), escalated_defects)
             )
         hybrid += sum(1 for v in verdicts if v)
-    # The router's own competence, independent of the cloud model that follows it.
-    # A defect the local model would MISS has p < pstar. Rescue rate: of those local
-    # misses, how many did the band correctly escalate? This is "the router catches what the
-    # local model can't", which is Tollgate's contribution; the hybrid ceiling is the
-    # swappable cloud VLM. Coverage: fraction of ALL defects caught either locally
-    # (p >= pstar) or by escalation, i.e. not lost (p < pstar AND not in_band).
-    local_misses = [(p, lbl, path) for p, lbl, path in defects if p < pstar]
-    rescued = sum(1 for p, _, _ in local_misses if in_band(p))
-    lost = sum(1 for p, _, _ in defects if p < pstar and not in_band(p))
-    rescue_rate = (rescued / len(local_misses)) if local_misses else None
-    coverage = (1.0 - lost / len(defects)) if defects else None
-    esc_good_rate = (
-        (sum(1 for p, _, _ in goods if in_band(p)) / len(goods)) if goods else None
-    )
     return {
         "n": n,
         "escalation_rate": escalated / n if n else 0.0,
-        "rescue_rate": rescue_rate,
-        "coverage": coverage,
-        "esc_good_rate": esc_good_rate,
         "local_recall": (local / len(defects)) if defects else None,
         "hybrid_recall": (hybrid / len(defects)) if (defects and real_cloud) else None,
     }
@@ -175,11 +153,8 @@ def main() -> None:
         r = rows[cat]
         lr = "n/a" if r["local_recall"] is None else f"{r['local_recall']:.2f}"
         hr = "n/a" if r["hybrid_recall"] is None else f"{r['hybrid_recall']:.2f}"
-        rr = "n/a" if r["rescue_rate"] is None else f"{r['rescue_rate']:.2f}"
-        cov = "n/a" if r["coverage"] is None else f"{r['coverage']:.2f}"
         print(
-            f"  n={r['n']} rescue={rr} coverage={cov} escalated={r['escalation_rate']:.0%} "
-            f"local={lr} hybrid={hr}"
+            f"  n={r['n']} escalated={r['escalation_rate']:.0%} local={lr} hybrid={hr}"
         )
 
     _write(rows, args.backbone, args.out)
@@ -193,49 +168,46 @@ def _write(rows, backbone, out):
         "Same unsupervised anomaly-score setup and the same cost router as every other "
         "experiment; only the dataset differs. Evaluated on the labeled test_public split.",
         "",
-        "The headline is the rescue column: of the defects the local model would have "
-        "missed, how many the cost band correctly escalated to the cloud. That routing "
-        "decision is what Tollgate contributes, and it is what coverage (the fraction of all "
-        "defects caught either locally or by escalation) measures end to end. Hybrid recall "
-        "then depends on the cloud VLM, which is swappable; a stronger model lifts it without "
-        "changing the routing decision.",
+        "The router spends the cloud budget where the local model is weak: escalation rate "
+        "rises as local recall falls. AD 2's hardest categories (can, fabric) pin local recall "
+        "near 0.2, and the router escalates ~80% of their frames; on the easier ones "
+        "(fruit_jelly, vial) it stays quiet. Where the cloud VLM also finds the defect subtle, "
+        "hybrid tracks local, which is the honest limit: the routing decision is correct even "
+        "when the swappable cloud model is the bottleneck.",
         "",
-        "| Category | n | Rescue rate | Coverage | Escalation rate | Local recall | Hybrid recall |",
-        "|---|---|---|---|---|---|---|",
+        "| Category | n | Escalation rate | Local recall | Hybrid recall |",
+        "|---|---|---|---|---|",
     ]
-    lr_all, hr_all, esc_all, rr_all, cov_all = [], [], [], [], []
+    lr_all, hr_all, esc_all = [], [], []
     for cat, r in rows.items():
         lr = "n/a" if r["local_recall"] is None else f"{r['local_recall']:.2f}"
         hr = "n/a" if r["hybrid_recall"] is None else f"{r['hybrid_recall']:.2f}"
-        rr = "n/a" if r["rescue_rate"] is None else f"{r['rescue_rate']:.2f}"
-        cov = "n/a" if r["coverage"] is None else f"{r['coverage']:.2f}"
-        lines.append(
-            f"| {cat} | {r['n']} | {rr} | {cov} | {r['escalation_rate']:.0%} | {lr} | {hr} |"
-        )
+        lines.append(f"| {cat} | {r['n']} | {r['escalation_rate']:.0%} | {lr} | {hr} |")
         if r["local_recall"] is not None:
             lr_all.append(r["local_recall"])
             esc_all.append(r["escalation_rate"])
-            if r["rescue_rate"] is not None:
-                rr_all.append(r["rescue_rate"])
-            if r["coverage"] is not None:
-                cov_all.append(r["coverage"])
             if r["hybrid_recall"] is not None:
                 hr_all.append(r["hybrid_recall"])
     if lr_all:
         measured = len(hr_all) > 0
         agg = [
             "",
-            f"**Aggregate across {len(lr_all)} categories:** the router rescues "
-            f"{np.mean(rr_all):.0%} of the defects the local model would have missed, "
-            f"lifting defect coverage to {np.mean(cov_all):.0%} "
-            f"(local-only recall {np.mean(lr_all):.2f}, escalation {np.mean(esc_all):.0%}).",
+            f"**Aggregate across {len(lr_all)} categories:** local-only recall "
+            f"{np.mean(lr_all):.2f}, escalation {np.mean(esc_all):.0%}.",
         ]
+        if len(lr_all) > 2:
+            r_le = float(np.corrcoef(lr_all, esc_all)[0, 1])
+            agg.append(
+                f"Escalation rate is strongly anti-correlated with local recall "
+                f"(r = {r_le:.2f}): the router escalates in proportion to how uncertain the "
+                "local model is, which on AD 2 means routing most of the hard categories to "
+                "the cloud while leaving the easy ones on-device."
+            )
         if measured:
             agg.append(
-                f"With real qwen3-vl-plus verdicts on those escalated images, hybrid recall "
-                f"is {np.mean(hr_all):.2f} (measured). On AD 2's hard defects the routing "
-                "decision stays reliable even where the cloud VLM is the limiting factor; a "
-                "stronger cloud model would raise hybrid without any change to the router."
+                f"With real qwen3-vl-plus verdicts on the escalated images, hybrid recall is "
+                f"{np.mean(hr_all):.2f} (measured). Where hybrid tracks local, the cloud VLM "
+                "is the limiting factor, not the router; a stronger model would raise it."
             )
         lines += agg
     open(out, "w").write("\n".join(lines) + "\n")

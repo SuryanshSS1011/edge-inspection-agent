@@ -170,5 +170,5 @@ export type Sample = { file: string; label: string; category: string; expect: st
 export const SAMPLES: Sample[] = [
   { file: 'bottle-good.png', label: 'Clean bottle', category: 'bottle', expect: 'defect-free' },
   { file: 'bottle-broken.png', label: 'Broken bottle', category: 'bottle', expect: 'broken glass' },
-  { file: 'capsule-crack.png', label: 'Cracked capsule', category: 'capsule', expect: 'crack' },
+  { file: 'capsule-defect.png', label: 'Contaminated capsule', category: 'capsule', expect: 'contamination' },
 ]

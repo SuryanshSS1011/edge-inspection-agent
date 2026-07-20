@@ -81,6 +81,15 @@ p { margin: 0 0 16px; }
 .equation .mono { font-size: clamp(1rem, 2vw, 1.3rem); color: var(--ink); }
 .eq-where { display: block; margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
 
+/* Symbol key for the escalation-band equation: every variable defined once, in place. */
+.eq-key { margin: 18px 0 6px; display: grid; gap: 8px; }
+.eq-key > div { display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: baseline; }
+.eq-key dt { color: var(--toll); font-size: 0.92rem; }
+.eq-key dd { margin: 0; color: var(--text-dim); font-size: 0.92rem; }
+@media (max-width: 560px) {
+  .eq-key > div { grid-template-columns: 1fr; gap: 2px; }
+}
+
 .claims { margin: 8px 0 0; padding-left: 22px; }
 .claims li { margin: 10px 0; }
 .claims strong { color: var(--ink); }

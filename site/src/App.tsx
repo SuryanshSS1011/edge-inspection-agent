@@ -96,7 +96,19 @@ function Idea() {
         <span className="mono">band = [ T / C_FN , 1 − T / C_FP ]</span>
         <span className="eq-where mono">where T = C_cloud + ε</span>
       </div>
-      <p>Three behaviours follow directly:</p>
+      <dl className="eq-key">
+        <div><dt className="mono">p</dt><dd>the local model's calibrated defect probability for a frame</dd></div>
+        <div><dt className="mono">C_FN</dt><dd>cost of a missed defect (a false negative shipped downstream)</dd></div>
+        <div><dt className="mono">C_FP</dt><dd>cost of a false alarm (a good part wrongly rejected)</dd></div>
+        <div><dt className="mono">C_cloud</dt><dd>cost of one escalation, a single cloud call</dd></div>
+        <div><dt className="mono">ε</dt><dd>the cloud's residual error, so escalation is only worth it beyond this floor</dd></div>
+        <div><dt className="mono">T</dt><dd>the escalation threshold, C_cloud + ε</dd></div>
+      </dl>
+      <p>
+        A frame escalates when its <span className="mono">p</span> lands inside this band: uncertain
+        enough that a cloud call is cheaper than deciding locally and being wrong. Three behaviours
+        follow directly:
+      </p>
       <ul className="claims">
         <li><strong>In-band (uncertain).</strong> Escalate only the cropped ROI to Qwen3-VL. Zero raw frames, zero PII.</li>
         <li><strong>Out-of-band (confident).</strong> Decide locally in milliseconds. No cloud call.</li>

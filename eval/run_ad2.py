@@ -108,12 +108,21 @@ def _analyze(items, category="", real_cloud=False):
     escalated = sum(1 for p, _, _ in items if in_band(p))
     local = sum(1 for p, _, _ in defects if p >= pstar and not in_band(p))
     hybrid = 0
-    for p, _, path in defects:
-        if in_band(p):
-            if real_cloud and _cloud_says_defect(path, category):
-                hybrid += 1
-        elif p >= pstar:
-            hybrid += 1
+    # Escalated defects are confirmed by the cloud; fire those calls concurrently so the
+    # sequential ~2.7s latency doesn't dominate the wall time.
+    escalated_defects = [path for p, _, path in defects if in_band(p)]
+    local_caught_defects = sum(
+        1 for p, _, _ in defects if not in_band(p) and p >= pstar
+    )
+    hybrid = local_caught_defects
+    if real_cloud and escalated_defects:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=12) as ex:
+            verdicts = list(
+                ex.map(lambda pth: _cloud_says_defect(pth, category), escalated_defects)
+            )
+        hybrid += sum(1 for v in verdicts if v)
     return {
         "n": n,
         "escalation_rate": escalated / n if n else 0.0,

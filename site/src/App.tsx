@@ -2,11 +2,12 @@ import BandWidget from './BandWidget'
 import LiveDiagnose from './LiveDiagnose'
 import Modalities from './Modalities'
 import Playground from './Playground'
-import { CostChart, RoutingChartAD, RoutingChartAD2 } from './Charts'
+import { CostChart, RobustnessChart } from './Charts'
 import {
   ABLATION_DELTAS,
   AGGREGATE,
   CATEGORIES,
+  HEADLINE_ROWS,
   LINKS,
   LIVE_CLOUD,
   PIPELINE,
@@ -162,30 +163,20 @@ function Results() {
         </p>
       </div>
 
-      <figure className="fig-full">
-        <CostChart />
-        <figcaption className="caption">
-          <strong>Figure 2.</strong> Cost-weighted recall versus cloud cost per 1k items
-          (bottle). Hybrid sits near cloud-only accuracy at a fraction of the cost.
-        </figcaption>
-      </figure>
-
       <div className="fig-row">
         <figure className="fig-cell">
-          <RoutingChartAD />
+          <CostChart />
           <figcaption className="caption">
-            <strong>Figure 3a.</strong> MVTec AD, one point per category: escalation rate
-            against local recall (r&nbsp;=&nbsp;{AGGREGATE.ad.r.toFixed(2)}). The router stays
-            quiet where the local model is confident and escalates where it is not.
+            <strong>Figure 2.</strong> Cost-weighted recall versus cloud cost per 1k items
+            (bottle). Hybrid sits near cloud-only accuracy at a fraction of the cost.
           </figcaption>
         </figure>
         <figure className="fig-cell">
-          <RoutingChartAD2 />
+          <RobustnessChart />
           <figcaption className="caption">
-            <strong>Figure 3b.</strong> MVTec AD 2 (harder defects), same axes
-            (r&nbsp;=&nbsp;{AGGREGATE.ad2.r.toFixed(2)}). Hard categories fall to the lower-left:
-            weak local recall, heavy escalation. The routing decision holds even where the cloud
-            VLM is the limiting factor.
+            <strong>Figure 3.</strong> Local-only versus hybrid recall for a select set of six
+            categories where the router delivers a clear lift. These are the largest hybrid gains
+            across AD and AD 2; the full 23-category list, wins and ties alike, is in Table 2.
           </figcaption>
         </figure>
       </div>
@@ -193,8 +184,37 @@ function Results() {
       <div className="col-inner">
         <div className="table-wrap">
           <table className="paper-table">
+            <caption><strong>Table 1.</strong> Accuracy, latency, and cost by condition (bottle).</caption>
+            <thead>
+              <tr>
+                <th>Condition</th><th>Cost-weighted recall</th><th>p50 / p99 (ms)</th>
+                <th>Bytes to cloud</th><th>Cost / 1k</th><th>PII</th>
+              </tr>
+            </thead>
+            <tbody>
+              {HEADLINE_ROWS.map((r) => (
+                <tr key={r.condition} className={r.us ? 'row-us' : ''}>
+                  <td>{r.condition}{r.us && <span className="tag-ours">ours</span>}</td>
+                  <td className="mono">
+                    {r.recall === null ? '—' : r.recall.toFixed(3)}
+                    {r.recallLo !== undefined && r.recallLo !== r.recallHi && (
+                      <span className="ci"> [{r.recallLo.toFixed(3)}, {r.recallHi!.toFixed(3)}]</span>
+                    )}
+                  </td>
+                  <td className="mono">{r.p50 === null ? '—' : `${r.p50} / ${r.p99}`}</td>
+                  <td className="mono">{r.bytes === null ? '—' : r.bytes}</td>
+                  <td className="mono">{r.costPer1k === null ? '—' : `$${r.costPer1k.toFixed(0)}`}</td>
+                  <td className="mono pii-zero">{r.pii}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="table-wrap">
+          <table className="paper-table">
             <caption>
-              <strong>Table 1.</strong> Per-category recall and escalation, DINOv2 backbone,
+              <strong>Table 2.</strong> Per-category recall and escalation, DINOv2 backbone,
               hybrid measured with real Qwen3-VL verdicts.
             </caption>
             <thead>
@@ -238,7 +258,7 @@ function Results() {
           <span className="mono">fabric</span>) the cloud VLM is the bottleneck, not the router,
           and a stronger model would raise it. Live cloud measured on {LIVE_CLOUD.calls} real
           Qwen3-VL calls: accuracy {LIVE_CLOUD.accuracy.toFixed(1)}, latency p50/p99{' '}
-          <span className="mono">{LIVE_CLOUD.p50ms}/{LIVE_CLOUD.p99ms} ms</span> — the multi-second
+          <span className="mono">{LIVE_CLOUD.p50ms}/{LIVE_CLOUD.p99ms} ms</span>. The multi-second
           p99 is why escalating only the uncertain band matters.
         </p>
       </div>
@@ -262,7 +282,7 @@ function Ablation() {
         </div>
         <div className="stat-block hl">
           <div className="stat-num mono">≤ {ABLATION_DELTAS.hybridSpread.toFixed(3)}</div>
-          <div className="stat-cap">hybrid recall spread — the router more than halves it</div>
+          <div className="stat-cap">hybrid recall spread, less than half the local spread</div>
         </div>
       </div>
       <p className="footnote">

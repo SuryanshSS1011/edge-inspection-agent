@@ -118,7 +118,7 @@ function ThreeD() {
         <div className="stat3d"><span className="stat3d-v mono">0</span><span className="stat3d-l">orchestration changes</span></div>
       </div>
       <p className="mod-note">
-        Same weak local model, same router, same outbox — only the feature extractor differs.
+        Same weak local model, same router, same outbox, with only the feature extractor different.
         With real Qwen-VL verdicts on the escalated clouds' paired RGB, hybrid recall rises
         from {THREED.localRecall.toFixed(2)} to {THREED.hybridRecall?.toFixed(2)}. The lift is
         modest because the reasoner sees colour, not the depth channel, an honest limitation,

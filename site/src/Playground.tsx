@@ -338,7 +338,7 @@ function Verdict({ modeRun, cloud, cloudState, usedLive }: { modeRun: ModeRun; c
           <div><dt className="mono">reasoning</dt><dd>{cloud.root_cause}</dd></div>
         </dl>
       )}
-      {!modeRun.in_band && <p className="pg-local">Decided locally — no cloud call, no bytes off-device.</p>}
+      {!modeRun.in_band && <p className="pg-local">Decided locally, with no cloud call and no bytes off-device.</p>}
     </div>
   )
 }

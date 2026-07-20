@@ -110,6 +110,33 @@ export const ABLATION_DELTAS = {
   hybridMax: 0.023,
 } as const
 
+// MVTec LOCO — logical vs. structural anomalies. Unsupervised anomaly score (train on good
+// only), hybrid recall MEASURED with real qwen3-vl-plus verdicts. From eval/results_loco_final.md.
+export type LocoRow = {
+  category: string
+  kind: 'logical' | 'structural'
+  n: number
+  escalation: number
+  localRecall: number
+  hybridRecall: number
+}
+export const LOCO: LocoRow[] = [
+  { category: 'breakfast_box', kind: 'logical', n: 42, escalation: 0.29, localRecall: 0.71, hybridRecall: 1.0 },
+  { category: 'breakfast_box', kind: 'structural', n: 45, escalation: 0.78, localRecall: 0.22, hybridRecall: 1.0 },
+  { category: 'juice_bottle', kind: 'logical', n: 70, escalation: 0.31, localRecall: 0.69, hybridRecall: 0.69 },
+  { category: 'juice_bottle', kind: 'structural', n: 48, escalation: 0.73, localRecall: 0.27, hybridRecall: 0.4 },
+  { category: 'pushpins', kind: 'logical', n: 45, escalation: 0.49, localRecall: 0.49, hybridRecall: 0.98 },
+  { category: 'pushpins', kind: 'structural', n: 41, escalation: 0.02, localRecall: 0.98, hybridRecall: 1.0 },
+  { category: 'screw_bag', kind: 'logical', n: 66, escalation: 0.56, localRecall: 0.44, hybridRecall: 1.0 },
+  { category: 'screw_bag', kind: 'structural', n: 44, escalation: 0.45, localRecall: 0.55, hybridRecall: 0.98 },
+  { category: 'splicing_connectors', kind: 'logical', n: 52, escalation: 0.62, localRecall: 0.38, hybridRecall: 0.46 },
+  { category: 'splicing_connectors', kind: 'structural', n: 45, escalation: 0.69, localRecall: 0.31, hybridRecall: 0.4 },
+]
+export const LOCO_AGG = {
+  logical: { escalation: 0.45, localRecall: 0.54, hybridRecall: 0.83 },
+  structural: { escalation: 0.53, localRecall: 0.47, hybridRecall: 0.75 },
+} as const
+
 export const PIPELINE = [
   { key: 'perceive', name: 'Perceive', detail: 'ONNX classifier gives a calibrated defect probability p in milliseconds.' },
   { key: 'route', name: 'Route', detail: 'The cost inequality decides: in-band escalates, out-of-band acts locally.' },

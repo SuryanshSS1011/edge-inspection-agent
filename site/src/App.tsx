@@ -1,5 +1,6 @@
 import BandWidget from './BandWidget'
 import LiveDiagnose from './LiveDiagnose'
+import Modalities from './Modalities'
 import Playground from './Playground'
 import {
   ABLATION_DELTAS,
@@ -21,6 +22,7 @@ export default function App() {
       <Interactive />
       <Playground />
       <Results />
+      <Modalities />
       <LiveDiagnose />
       <Ablation />
       <Offline />
@@ -45,6 +47,7 @@ function Nav() {
           <a href="#band">Band</a>
           <a href="#playground">Playground</a>
           <a href="#results">Results</a>
+          <a href="#modalities">Modalities</a>
           <a href="#try">Try it</a>
           <a href="#start">Get started</a>
           <a className="nav-cta" href={LINKS.repo}>GitHub</a>

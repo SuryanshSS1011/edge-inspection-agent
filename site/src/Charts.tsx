@@ -48,7 +48,8 @@ function CostLabel(props: any) {
   const index: number = props.index ?? 0
   const point = COST_POINTS[index]
   const anchor = index === 0 ? 'end' : index === COST_POINTS.length - 1 ? 'start' : 'middle'
-  const dx = anchor === 'end' ? -8 : anchor === 'start' ? 8 : 0
+  // Nudge the right-most (Cloud-everything) label rightward a touch; keep the left-most padded.
+  const dx = anchor === 'end' ? 6 : anchor === 'start' ? 8 : 0
   return (
     <text
       x={x + dx}
@@ -73,7 +74,7 @@ function CostLabel(props: any) {
 export function CostChart() {
   return (
     <ResponsiveContainer width="100%" height={284}>
-      <ScatterChart margin={{ top: 40, right: 20, bottom: 34, left: 8 }}>
+      <ScatterChart margin={{ top: 40, right: 28, bottom: 34, left: 8 }}>
         <CartesianGrid stroke={GRID} strokeDasharray="2 4" />
         <XAxis
           type="number"
@@ -98,6 +99,8 @@ export function CostChart() {
         <Tooltip
           cursor={{ strokeDasharray: '3 3', stroke: AXIS }}
           contentStyle={tooltipStyle}
+          itemStyle={tooltipItemStyle}
+          labelStyle={tooltipItemStyle}
           formatter={(v, n) => (n === 'cost' ? `$${v}` : Number(v).toFixed(3))}
         />
         <Scatter data={COST_POINTS}>
@@ -156,4 +159,12 @@ const tooltipStyle = {
   color: cssVar('--ink', '#16181d'),
   fontSize: 12,
   fontFamily: 'IBM Plex Mono',
+}
+
+// Force tooltip rows to the readable ink color. Recharts otherwise tints each row with the
+// scatter point's fill (green/gold/blue), which is near-invisible on the panel background.
+const tooltipItemStyle = {
+  color: cssVar('--ink', '#16181d'),
+  fontFamily: 'IBM Plex Mono',
+  fontSize: 12,
 }

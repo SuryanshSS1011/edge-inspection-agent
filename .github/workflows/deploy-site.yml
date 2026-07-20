@@ -1,0 +1,66 @@
+name: Deploy site to GitHub Pages
+
+# Builds the Tollgate project site and publishes it to GitHub Pages. The live "Try it" /
+# playground cloud calls are wired in at BUILD time from the VITE_DIAGNOSE_URL repository
+# variable (Settings -> Secrets and variables -> Actions -> Variables). It must point at an
+# HTTPS endpoint, or browsers will block the call as mixed content and the UI falls back to
+# the captured verdicts.
+
+on:
+  push:
+    branches: [main, feature/multimodal-datasets-and-site]
+    paths: ['site/**', '.github/workflows/deploy-site.yml']
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; let a newer run supersede an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          # Set this repo variable to the deployed HTTPS reasoner, e.g.
+          #   https://tollgate.duckdns.org
+          # Empty is fine: the live box then shows a "not wired in" note and the playground
+          # falls back to captured verdicts.
+          VITE_DIAGNOSE_URL: ${{ vars.VITE_DIAGNOSE_URL }}
+        run: |
+          npm run build
+          cp dist/index.html dist/404.html   # SPA fallback for client routing
+          touch dist/.nojekyll                # serve Vite's hashed assets as-is
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

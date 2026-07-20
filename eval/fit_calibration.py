@@ -22,8 +22,24 @@ from edge.calibration import (
     fit_temperature,
     save,
 )
-from edge.perception import OnnxClassifier, _pick_score_output, logit_from_output
+from edge.perception import _pick_score_output, logit_from_output
 from eval.features import extract
+
+
+def _extractor_for(width):
+    """Pick the feature extractor by the head's input width, matching edge.perception's
+    live dispatch so calibration is fitted on the same features the runtime will see."""
+    if width == 23:
+        return extract  # handcrafted color/edge/grid (eval.features.extract)
+    if width == 384:
+        from eval.dinov2_features import extract as dv_extract
+
+        return dv_extract
+    if width == 1000:
+        from eval.mobilenet_features import extract as mb_extract
+
+        return mb_extract
+    raise ValueError(f"no calibration extractor for input width {width}")
 
 
 def collect_logits(model_path: str, items):
@@ -32,10 +48,12 @@ def collect_logits(model_path: str, items):
 
     session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
     input_name = session.get_inputs()[0].name
+    width = session.get_inputs()[0].shape[-1]
+    feat_of = _extractor_for(width if isinstance(width, int) else 23)
 
     logits, labels = [], []
     for path, label in items:
-        feat = extract(path).reshape(1, -1).astype(np.float32)
+        feat = feat_of(path).reshape(1, -1).astype(np.float32)
         outputs = session.run(None, {input_name: feat})
         logits.append(logit_from_output(_pick_score_output(outputs)))
         labels.append(float(label))
@@ -69,7 +87,9 @@ def main() -> None:
     print(f"ECE after:           {ece_after:.4f}")
     print(f"saved temperature -> {args.out}")
     if ece_after > ece_before + 1e-6:
-        print("WARNING: calibration did not improve ECE; inspect the calibration split.")
+        print(
+            "WARNING: calibration did not improve ECE; inspect the calibration split."
+        )
 
 
 if __name__ == "__main__":

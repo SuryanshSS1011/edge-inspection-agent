@@ -1,6 +1,6 @@
 .mod-block {
   margin: 40px 0 0;
-  padding: 28px;
+  padding: 32px 36px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -19,7 +19,9 @@
   border-radius: 2px;
   background: var(--toll);
 }
-.mod-lead { color: var(--text-dim); max-width: 70ch; font-size: 0.98rem; margin: 0 0 22px; }
+/* Text fills the card so it is not visibly narrower than the artifacts (agg cards, stat grid,
+   table) below it. Letting it span the full card width removes the asymmetric right-side gap. */
+.mod-lead { color: var(--text-dim); max-width: none; font-size: 0.98rem; margin: 0 0 22px; }
 
 .mod-agg { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
 @media (max-width: 640px) { .mod-agg { grid-template-columns: 1fr; } }
@@ -44,10 +46,14 @@
 .agg-lift { margin-top: 6px; color: var(--pass); font-size: 0.85rem; }
 .agg-sub { margin-top: 4px; color: var(--text-faint); font-size: 0.78rem; }
 
-.mod-table { min-width: 560px; }
+/* Full-width table with generous column padding so the six columns stop competing for space
+   and the numbers do not touch. */
+.mod-table { width: 100%; min-width: 680px; }
+.mod-table th, .mod-table td { padding-left: 18px; padding-right: 18px; white-space: nowrap; }
+.mod-table th:first-child, .mod-table td:first-child { padding-left: 4px; }
 .row-logical { background: color-mix(in srgb, var(--toll) 5%, transparent); }
 .mod-table .lift { color: var(--pass); font-weight: 600; }
-.mod-note { margin: 16px 0 0; color: var(--text-dim); font-size: 0.9rem; max-width: 72ch; }
+.mod-note { margin: 16px 0 0; color: var(--text-dim); font-size: 0.9rem; max-width: none; }
 
 .mod-3d-stats {
   display: grid;

@@ -21,10 +21,10 @@ export default function Modalities() {
           constraint violations (MVTec LOCO), and 3D point clouds (MVTec 3D-AD) with zero change
           to the orchestration, privacy filter, or outbox.
         </p>
-
-        <Loco />
-        <ThreeD />
       </div>
+
+      <Loco />
+      <ThreeD />
     </section>
   )
 }
@@ -121,8 +121,8 @@ function ThreeD() {
         Same weak local model, same router, same outbox, with only the feature extractor different.
         With real Qwen-VL verdicts on the escalated clouds' paired RGB, hybrid recall rises
         from {THREED.localRecall.toFixed(2)} to {THREED.hybridRecall?.toFixed(2)}. The lift is
-        modest because the reasoner sees colour, not the depth channel, an honest limitation,
-        but the cost-routing decision transfers to a new modality with zero orchestration
+        modest because the reasoner sees colour, not the depth channel, an honest limitation.
+        Even so, the cost-routing decision transfers to a new modality with zero orchestration
         change, which is the "one inequality" claim made concrete.
       </p>
     </div>

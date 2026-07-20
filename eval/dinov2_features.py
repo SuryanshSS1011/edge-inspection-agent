@@ -80,7 +80,9 @@ def _preprocess_bgr(frame: np.ndarray) -> np.ndarray:
     """ImageNet preprocessing from an in-memory BGR frame (the live camera path)."""
     import cv2  # lazy
 
-    rgb = cv2.cvtColor(cv2.resize(frame, _SIZE, interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB)
+    rgb = cv2.cvtColor(
+        cv2.resize(frame, _SIZE, interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB
+    )
     arr = (rgb.astype(np.float32) / 255.0 - _MEAN) / _STD
     chw = np.transpose(arr, (2, 0, 1))
     return np.expand_dims(chw, 0).astype(np.float32)
@@ -102,8 +104,55 @@ def extract_from_bgr(frame: np.ndarray) -> np.ndarray:
     return _embed(_preprocess_bgr(frame))
 
 
+# --- optional torch-CUDA fast path -----------------------------------------------------
+# onnxruntime-gpu on some clusters can't find cuDNN and silently falls back to CPU, which
+# makes full-dataset extraction glacial. When TOLLGATE_DINOV2_TORCH=1, run the same DINOv2
+# weights through torch on the GPU in batches instead. Produces the same embedding; used only
+# for eval throughput, the ONNX path stays the default (no torch at inference).
+
+_torch_model = None
+_torch_device = None
+
+
+def _torch_backbone():
+    global _torch_model, _torch_device, FEATURE_DIM
+    if _torch_model is None:
+        import os
+        import torch
+
+        _torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+        os.environ.setdefault("TORCH_HOME", "/scratch/sss6371/torch_hub")
+        _torch_model = (
+            torch.hub.load("facebookresearch/dinov2", "dinov2_vits14")
+            .eval()
+            .to(_torch_device)
+        )
+        for p in _torch_model.parameters():
+            p.requires_grad_(False)
+        FEATURE_DIM = 384
+    return _torch_model, _torch_device
+
+
+def _extract_many_torch(paths, batch_size: int = 64) -> np.ndarray:
+    import torch
+
+    model, device = _torch_backbone()
+    tensors = [torch.from_numpy(_preprocess(p)[0]) for p in paths]  # each [3,224,224]
+    out = []
+    with torch.no_grad():
+        for i in range(0, len(tensors), batch_size):
+            batch = torch.stack(tensors[i : i + batch_size]).to(device)
+            emb = model(batch)  # [B, 384]
+            out.append(emb.detach().cpu().numpy())
+    return np.concatenate(out, axis=0).astype(np.float32)
+
+
 def extract_many(paths) -> np.ndarray:
+    import os
+
     paths = list(paths)
     if not paths:
         return np.empty((0, _resolve_dim()), np.float32)
+    if os.environ.get("TOLLGATE_DINOV2_TORCH") == "1":
+        return _extract_many_torch(paths)
     return np.stack([extract(p) for p in paths])

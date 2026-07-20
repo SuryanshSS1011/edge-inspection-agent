@@ -31,12 +31,13 @@ def _dashscope_retryable(exc: BaseException) -> bool:
         return exc.code == 429 or exc.code >= 500
     return isinstance(exc, (urllib.error.URLError, TimeoutError, OSError))
 
+
 DIAGNOSIS_SCHEMA_KEYS = {
-    "defect_present",     # bool
-    "defect_type",        # str
-    "confidence",         # float 0..1
-    "root_cause",         # str
-    "recommended_action", # str
+    "defect_present",  # bool
+    "defect_type",  # str
+    "confidence",  # float 0..1
+    "root_cause",  # str
+    "recommended_action",  # str
 }
 
 SYSTEM_PROMPT = (
@@ -54,10 +55,10 @@ SYSTEM_PROMPT = (
     "NOT defects. Do not infer a defect merely because you were asked to inspect. State the "
     "concrete visual evidence in root_cause (for a logical defect, say what count or "
     "arrangement is wrong); if you cannot name a specific problem, return "
-    "defect_present=false with defect_type \"none\". "
+    'defect_present=false with defect_type "none". '
     "Return ONLY a JSON object with exactly these keys: defect_present (boolean), "
-    "defect_type (string, \"none\" if no defect; use \"logical\" prefix for constraint "
-    "violations e.g. \"logical:wrong_count\"), confidence (number 0-1), "
+    'defect_type (string, "none" if no defect; use "logical" prefix for constraint '
+    'violations e.g. "logical:wrong_count"), confidence (number 0-1), '
     "root_cause (string), recommended_action (string). "
     "No markdown, no prose, and no code fences. Return the JSON object only."
 )
@@ -67,7 +68,7 @@ DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 # reasoning), which matters most for logical anomalies (counting / arrangement / missing
 # parts). QWEN_MODEL overrides this at call time; run `python -m eval.probe_qwen_models` to
 # confirm which ids resolve on your voucher's endpoint before relying on one.
-DEFAULT_MODEL = "qwen3-vl-plus"
+DEFAULT_MODEL = "qwen3-vl-plus-2025-12-19"
 
 
 class CloudConfigError(RuntimeError):
@@ -77,22 +78,28 @@ class CloudConfigError(RuntimeError):
 def _build_messages(roi_png: Optional[bytes], embedding: Optional[list], context: dict):
     user_content = []
     ctx_note = json.dumps(context) if context else "{}"
-    user_content.append({
-        "type": "text",
-        "text": f"Inspect this region of a manufacturing part. Context: {ctx_note}",
-    })
+    user_content.append(
+        {
+            "type": "text",
+            "text": f"Inspect this region of a manufacturing part. Context: {ctx_note}",
+        }
+    )
     if roi_png is not None:
         b64 = base64.b64encode(roi_png).decode("ascii")
-        user_content.append({
-            "type": "image_url",
-            "image_url": {"url": f"data:image/png;base64,{b64}"},
-        })
+        user_content.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64}"},
+            }
+        )
     elif embedding is not None:
         # No raw image available in privacy mode, so pass the abstracted vector.
-        user_content.append({
-            "type": "text",
-            "text": f"Abstracted feature embedding of the ROI: {embedding}",
-        })
+        user_content.append(
+            {
+                "type": "text",
+                "text": f"Abstracted feature embedding of the ROI: {embedding}",
+            }
+        )
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
@@ -105,13 +112,17 @@ def _build_messages(roi_png: Optional[bytes], embedding: Optional[list], context
     stop=stop_after_attempt(3),
     reraise=True,
 )
-def _post_chat(messages, *, base_url: str, model: str, api_key: str, timeout: float) -> str:
-    body = json.dumps({
-        "model": model,
-        "messages": messages,
-        "temperature": 0.0,
-        "response_format": {"type": "json_object"},
-    }).encode("utf-8")
+def _post_chat(
+    messages, *, base_url: str, model: str, api_key: str, timeout: float
+) -> str:
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.0,
+            "response_format": {"type": "json_object"},
+        }
+    ).encode("utf-8")
     req = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=body,
@@ -137,7 +148,7 @@ def _parse_json(text: str) -> dict:
         text = text.strip()
     start, end = text.find("{"), text.rfind("}")
     if start != -1 and end != -1 and end > start:
-        text = text[start:end + 1]
+        text = text[start : end + 1]
     return json.loads(text)
 
 
@@ -156,6 +167,7 @@ def diagnose(
     """
     try:
         from edge.dotenv import load_dotenv
+
         load_dotenv()  # pick up DASHSCOPE_API_KEY from .env for local runs
     except Exception:
         pass  # in the deployed function the vars come from the FC environment
@@ -170,23 +182,33 @@ def diagnose(
     for _ in range(max_retries + 1):
         try:
             raw = _post_chat(
-                messages, base_url=base_url, model=model, api_key=api_key, timeout=timeout
+                messages,
+                base_url=base_url,
+                model=model,
+                api_key=api_key,
+                timeout=timeout,
             )
             return validate(_coerce(_parse_json(raw)))
         except (ValueError, KeyError, json.JSONDecodeError) as exc:
             last_err = exc
-            messages.append({
-                "role": "user",
-                "content": "That was not valid. Return ONLY the JSON object with the "
-                           "required keys.",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "That was not valid. Return ONLY the JSON object with the "
+                    "required keys.",
+                }
+            )
     raise ValueError(f"Qwen-VL did not return valid diagnosis JSON: {last_err}")
 
 
 def _coerce(d: dict) -> dict:
     """Light normalization so minor type drift doesn't fail an otherwise-good answer."""
     if "defect_present" in d and isinstance(d["defect_present"], str):
-        d["defect_present"] = d["defect_present"].strip().lower() in ("true", "yes", "1")
+        d["defect_present"] = d["defect_present"].strip().lower() in (
+            "true",
+            "yes",
+            "1",
+        )
     if "confidence" in d:
         try:
             d["confidence"] = float(d["confidence"])

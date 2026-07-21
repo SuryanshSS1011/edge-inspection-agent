@@ -40,43 +40,43 @@
   top: 0;
   bottom: 0;
   transition: left 0.15s ease, width 0.15s ease;
+  overflow: hidden;
 }
-/* The pass zone is usually thin (p_lo is small). Give it a solid accent strip on the far left
-   so "Pass locally" is always visible even when the region is only a few percent wide. */
+/* Distinct, saturated tints so the three regions never blur into one muddy colour. Each zone
+   carries its name as a pill at its own top-left corner, coloured to match. */
 .zone-pass {
   left: 0;
-  background: color-mix(in srgb, var(--pass) 22%, transparent);
-  border-right: 2px dashed color-mix(in srgb, var(--pass) 60%, transparent);
-  box-shadow: inset 3px 0 0 var(--pass);
+  background: color-mix(in srgb, var(--pass) 26%, var(--panel));
+  border-right: 2px dashed color-mix(in srgb, var(--pass) 70%, transparent);
 }
 .zone-escalate {
-  background: color-mix(in srgb, var(--toll) 26%, transparent);
-  border-left: 2px dashed color-mix(in srgb, var(--toll) 65%, transparent);
-  border-right: 2px dashed color-mix(in srgb, var(--toll) 65%, transparent);
+  background: color-mix(in srgb, var(--toll) 30%, var(--panel));
 }
 .zone-reject {
-  background: color-mix(in srgb, var(--reject) 18%, transparent);
-  box-shadow: inset -3px 0 0 color-mix(in srgb, var(--reject) 70%, transparent);
+  background: color-mix(in srgb, var(--reject) 22%, var(--panel));
+  border-left: 2px dashed color-mix(in srgb, var(--reject) 60%, transparent);
 }
 
-/* zone labels sit inside their band, low, so parts/probe read above them. They are a soft
-   watermark, not competing with the part tags. */
-.zone::after {
+/* zone name pill, pinned to the bottom-left inside each zone so it never fights the part
+   markers and probe that live along the top and centre */
+.zone-tag {
   position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.64rem;
-  letter-spacing: 0.14em;
+  bottom: 8px;
+  left: 10px;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
   white-space: nowrap;
-  font-weight: 600;
-  opacity: 0.9;
 }
-.zone-escalate::after { content: 'escalate'; color: var(--toll); }
-.zone-reject::after { content: 'reject'; color: var(--reject); }
-/* The pass zone is usually thin (low p_lo); its green dot + "clean part" tag already read
-   as pass, so we omit a PASS watermark to avoid crowding the left edge. */
+.zt-pass { color: var(--pass); background: color-mix(in srgb, var(--pass) 20%, transparent); }
+.zt-escalate { color: var(--toll); background: color-mix(in srgb, var(--toll) 20%, transparent); }
+.zt-reject { color: var(--reject); background: color-mix(in srgb, var(--reject) 20%, transparent); }
+/* the pass zone is often too narrow for a pill, so hide its label when cramped and let the
+   green fill plus the "clean part" marker carry it */
+.zone-pass .zone-tag { display: none; }
 
 /* ---- thresholds ----
    The zone fills already draw a dashed boundary at p_lo and p_hi, so the threshold marker is
@@ -183,9 +183,9 @@
   border-left: 2px solid var(--ink);
   opacity: 0.4;
 }
-.probe-pass .probe-handle { border-color: var(--pass); }
-.probe-escalate .probe-handle { border-color: var(--toll); }
-.probe-reject .probe-handle { border-color: var(--reject); }
+.probe-pass .probe-handle { border-color: var(--pass); background: color-mix(in srgb, var(--pass) 18%, var(--paper)); }
+.probe-escalate .probe-handle { border-color: var(--toll); background: color-mix(in srgb, var(--toll) 18%, var(--paper)); }
+.probe-reject .probe-handle { border-color: var(--reject); background: color-mix(in srgb, var(--reject) 18%, var(--paper)); }
 
 /* ---- axis ticks ----
    Sits below the threshold tags (which occupy the -20px band under the track), so the
@@ -217,10 +217,15 @@
 }
 .probe-p { color: var(--ink); font-weight: 600; }
 .probe-arrow { color: var(--faint); }
-.probe-decision { font-weight: 600; }
-.d-pass { color: var(--pass); }
-.d-escalate { color: var(--toll); }
-.d-reject { color: var(--reject); }
+.probe-decision {
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 0.86rem;
+}
+.d-pass { color: var(--pass); background: color-mix(in srgb, var(--pass) 16%, transparent); }
+.d-escalate { color: var(--toll); background: color-mix(in srgb, var(--toll) 16%, transparent); }
+.d-reject { color: var(--reject); background: color-mix(in srgb, var(--reject) 16%, transparent); }
 .band-warn { color: var(--reject); font-size: 0.82rem; }
 
 /* ---- derived thresholds ---- */

@@ -95,9 +95,19 @@ export default function BandWidget() {
         onPointerMove={onPointerMove}
         onKeyDown={onKey}
       >
-        <div className="zone zone-pass" style={{ width: pct(lo) }} />
-        {valid && <div className="zone zone-escalate" style={{ left: pct(lo), width: pct(hi - lo) }} />}
-        <div className="zone zone-reject" style={{ left: pct(valid ? hi : pStar), right: 0 }} />
+        {/* zones sized by the real thresholds; the pass zone gets a small visual floor so it
+            never disappears when p_lo is tiny, without distorting the threshold labels below */}
+        <div className="zone zone-pass" style={{ width: `max(${pct(lo)}, 18px)` }}>
+          <span className="zone-tag zt-pass">pass</span>
+        </div>
+        {valid && (
+          <div className="zone zone-escalate" style={{ left: pct(lo), width: pct(hi - lo) }}>
+            <span className="zone-tag zt-escalate">escalate</span>
+          </div>
+        )}
+        <div className="zone zone-reject" style={{ left: pct(valid ? hi : pStar), right: 0 }}>
+          <span className="zone-tag zt-reject">reject</span>
+        </div>
 
         {/* thresholds */}
         {valid && <Threshold x={lo} label="p_lo" />}
@@ -131,7 +141,7 @@ export default function BandWidget() {
 
       {/* live probe readout */}
       <div className="probe-readout">
-        <span>Drag the marker:</span>
+        <span>Drag the handle to set a part's probability.</span>
         <span className="mono probe-p">p = {probe.toFixed(2)}</span>
         <span className="probe-arrow">→</span>
         <span className={`probe-decision d-${probeZone}`}>{ZONE_LABEL[probeZone]}</span>
